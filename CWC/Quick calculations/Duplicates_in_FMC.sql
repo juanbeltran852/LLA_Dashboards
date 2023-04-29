@@ -1,11 +1,12 @@
---CREATE TABLE IF NOT EXISTS "lla_cco_int_san"."cwc_con_san_KPIBaseTable_feb" AS
+-- CREATE TABLE IF NOT EXISTS "dg-sandbox"."cwc_fmc_feb2023" AS
+
 WITH 
 Fixed_Base AS(
-  SELECT * FROM "dg-sandbox"."cwc_fixed_sept2022"
+  SELECT * FROM "dg-sandbox"."cwc_fixed_feb2023"
 )
 
 ,Mobile_Base AS(
-  SELECT * FROM "dg-sandbox"."cwc_mobile_sept2022"
+  SELECT * FROM "dg-sandbox"."cwc_mobile_feb2023"
 )
 
 --###################################################### FMC Match############################################################################################
@@ -299,14 +300,14 @@ SELECT Final_Account, Fixed_Account, Mobile_Account,
     end as f_test_account, 
     case when (Final_Account like '%-%') then substr(Final_Account, -12) else null end as m_test_account
 FROM Final_Flags
-where month = date('2022-09-01')
+where month = date('2023-02-01')
 )
 
 -- SELECT * FROM Final_Flags WHERE month = date('2023-02-01') LIMIT 100
 , accounts_count as (
 SELECT 
-    Fixed_Account, 
-    case when Fixed_Account = f_test_account then 1 else null end as fmc_count
+    Mobile_Account, 
+    case when Mobile_Account = m_test_account then 1 else null end as fmc_count
     -- count(distinct Final_Account), 
     -- count(distinct Fixed_Account), 
     -- count(distinct Mobile_Account), 
@@ -316,19 +317,21 @@ FROM accounts_final
 
 , accounts_tier as (
 SELECT
-    distinct Fixed_Account, 
+    distinct Mobile_Account, 
     sum(fmc_count) as fmc_count
 FROM accounts_count
 GROUP BY 1
 ORDER BY fmc_count desc
 )
 
-SELECT
-    distinct fmc_count, 
-    count(distinct Fixed_Account)
-FROM accounts_tier
-GROUP BY 1
-ORDER BY 2 desc
+-- SELECT * FROM Final_Flags
+
+-- SELECT
+--     distinct fmc_count, 
+--     count(distinct Mobile_Account)
+-- FROM accounts_tier
+-- GROUP BY 1
+-- ORDER BY 2 desc
 
 -- SELECT 
 --     count(distinct f_test_account) as justone,
@@ -337,3 +340,9 @@ ORDER BY 2 desc
 -- FROM accounts_final 
 -- WHERE Final_Account like '%-%'
 -- ORDER BY random(*)
+
+-- SELECT
+--     count(distinct Final_Account)
+-- FROM Final_Flags
+-- WHERE
+--     Final_Account like '%-%'
