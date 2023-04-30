@@ -115,13 +115,13 @@ SELECT
     mobile_prmonth,
     mobile_rejoinermonth,
     finalmobilechurnflag,
-    b_totalrgus,
-    e_totalrgus,
-    b_totalmrc,
-    e_totalmrc,
+    case when num_row > 1 then b_mobilergus else b_totalrgus end as b_totalrgus,
+    case when num_row > 1 then e_mobilergus else e_totalrgus end as e_totalrgus,
+    case when num_row > 1 then mobile_mrc_bom else b_totalmrc end as b_totalmrc,
+    case when num_row > 1 then mobile_mrc_eom else e_totalmrc end as e_totalmrc,
     case when num_row > 1 and lower(b_fmctype) like '%fmc%' then 'Mobile Only' else b_fmctype end as b_fmctype, 
     case when num_row > 1 and lower(e_fmctype) like '%fmc%' then 'Mobile Only' else e_fmctype end as e_fmctype,
-    finalchurnflag,
+    finalchurnflag, --- ?
     case when num_row > 1 and b_fmc_segment = 'P4' then 'P1_Mobile' else b_fmc_segment end as b_fmc_segment,
     case when num_row > 1 and e_fmc_segment = 'P4' then 'P1_Mobile' else e_fmc_segment end as e_fmc_segment,
     case when num_row > 1 and b_final_tech_flag = 'FTTH' then 'Wireless' else b_final_tech_flag end as b_final_tech_flag,
@@ -131,9 +131,9 @@ SELECT
     churnsubtypefinalflag,
     churntenurefinalflag,
     rejoiner_finalflag,
-    waterfall_flag, 
-    downsell_split, 
-    downspin_split
+    waterfall_flag, --- ?
+    downsell_split,  --- ?
+    downspin_split --- ?
 FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM"dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Fixed_Account in (SELECT Fixed_Account FROM accounts_tier WHERE fmc_count > 1)
@@ -142,7 +142,7 @@ WHERE
 
 
 -- SELECT
---     *
+    -- distinct finalchurnflag
 -- FROM "dg-sandbox"."cwc_fmc_feb2023"
 -- WHERE Fixed_Account is null and Mobile_Account is not null
 -- LIMIT 10
