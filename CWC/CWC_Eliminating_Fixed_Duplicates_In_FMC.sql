@@ -36,12 +36,18 @@ ORDER BY fmc_count desc
 SELECT
     month, 
     case when num_row > 1 then mobile_account else final_account end as final_account, 
-    final_bom_activeflag, 
-    final_eom_activeflag, 
-    case when num_row > 1 and lower(b_fmc_status) like '%fmc%' then 'Mobile Only' else b_fmc_status end as b_fmc_status, 
-    case when num_row > 1 and lower(e_fmc_status) like '%fmc%' then 'Mobile Only' else e_fmc_status end as e_fmc_status, 
-    b_finaltenuresegment, 
-    e_finaltenuresegment, 
+    final_bom_activeflag, --- ?
+    final_eom_activeflag, --- ?
+    case 
+        when num_row > 1 and mobile_activebom = 0 then null
+        when num_row > 1 and mobile_activebom = 1 then 'Mobile Only' 
+    else b_fmc_status end as b_fmc_status, 
+    case 
+        when num_row > 1 and mobile_activeeom = 0 then null
+        when num_row > 1 and mobile_activeeom = 1 then 'Mobile Only' 
+    else e_fmc_status end as e_fmc_status, 
+    b_finaltenuresegment, --- ?
+    e_finaltenuresegment, --- ?
     case when num_row > 1 then null else fixed_month end as fixed_month, 
     case when num_row > 1 then null else fixed_account end as fixed_account,
     case when num_row > 1 then null else activebom end as activebom,
@@ -115,34 +121,40 @@ SELECT
     mobile_prmonth,
     mobile_rejoinermonth,
     finalmobilechurnflag,
-    case when num_row > 2 then b_mobilergus else b_totalrgus end as b_totalrgus,
-    case when num_row > 2 then e_mobilergus else e_totalrgus end as e_totalrgus,
-    case when num_row > 2 then mobile_mrc_bom else b_totalmrc end as b_totalmrc,
-    case when num_row > 2 then mobile_mrc_eom else e_totalmrc end as e_totalmrc,
-    case when num_row > 2 and lower(b_fmctype) like '%fmc%' then 'Mobile Only' else b_fmctype end as b_fmctype, 
-    case when num_row > 2 and lower(e_fmctype) like '%fmc%' then 'Mobile Only' else e_fmctype end as e_fmctype,
+    case when num_row > 1 then b_mobilergus else b_totalrgus end as b_totalrgus,
+    case when num_row > 1 then e_mobilergus else e_totalrgus end as e_totalrgus,
+    case when num_row > 1 then mobile_mrc_bom else b_totalmrc end as b_totalmrc,
+    case when num_row > 1 then mobile_mrc_eom else e_totalmrc end as e_totalmrc,
+    case when num_row > 1 and lower(b_fmctype) like '%fmc%' then 'Mobile Only' else b_fmctype end as b_fmctype, 
+    case when num_row > 1 and lower(e_fmctype) like '%fmc%' then 'Mobile Only' else e_fmctype end as e_fmctype,
     finalchurnflag, --- ?
-    case when num_row > 2 then concat('P', cast(b_mobilergus as varchar), '_Mobile') else b_fmc_segment end as b_fmc_segment,
-    case when num_row > 2 then concat('P', cast(e_mobilergus as varchar), '_Mobile') else e_fmc_segment end as e_fmc_segment,
-    b_final_tech_flag,
-    e_final_tech_flag,
-    partial_total_churnflag,
-    churntypefinalflag,
-    churnsubtypefinalflag,
-    churntenurefinalflag,
-    rejoiner_finalflag,
+    case when num_row > 1 then concat('P', cast(b_mobilergus as varchar), '_Mobile') else b_fmc_segment end as b_fmc_segment,
+    case when num_row > 1 then concat('P', cast(e_mobilergus as varchar), '_Mobile') else e_fmc_segment end as e_fmc_segment,
+    case 
+        when num_row > 1 and mobile_activebom = 0 then null
+        when num_row > 1 and mobile_activebom = 1 then 'Wireless'
+    else b_final_tech_flag end as b_final_tech_flag,
+    case 
+        when num_row > 1 and mobile_activeeom = 0 then null
+        when num_row > 1 and mobile_activeeom = 1 then 'Wireless' 
+    else e_final_tech_flag end as e_final_tech_flag,
+    partial_total_churnflag, --- ?
+    churntypefinalflag, --- ?
+    churnsubtypefinalflag, --- ?
+    churntenurefinalflag, --- ?
+    rejoiner_finalflag, --- ?
     waterfall_flag, --- ?
     downsell_split,  --- ?
     downspin_split --- ?
 FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM "dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Fixed_Account in (SELECT Fixed_Account FROM accounts_tier WHERE fmc_count > 1)
---     and Fixed_Account = '995147450000'
+-- --     and Fixed_Account = '995147450000'
 ORDER BY Fixed_Account desc
 
 
 -- SELECT
-    -- distinct finalchurnflag
+--     *
+-- --     -- distinct e_final_tech_flag
 -- FROM "dg-sandbox"."cwc_fmc_feb2023"
--- WHERE Fixed_Account is null and Mobile_Account is not null
--- LIMIT 10
+-- WHERE Fixed_Account is not null and Mobile_Account is null
