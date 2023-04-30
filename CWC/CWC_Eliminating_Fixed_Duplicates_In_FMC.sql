@@ -137,7 +137,7 @@ SELECT
 FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM"dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Fixed_Account in (SELECT Fixed_Account FROM accounts_tier WHERE fmc_count > 1)
-    and Fixed_Account = '995147450000'
+    -- and Fixed_Account = '995147450000'
 -- ORDER BY Fixed_Account desc
 
 
