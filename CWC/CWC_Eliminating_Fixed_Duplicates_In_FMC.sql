@@ -115,17 +115,17 @@ SELECT
     mobile_prmonth,
     mobile_rejoinermonth,
     finalmobilechurnflag,
-    case when num_row > 1 then b_mobilergus else b_totalrgus end as b_totalrgus,
-    case when num_row > 1 then e_mobilergus else e_totalrgus end as e_totalrgus,
-    case when num_row > 1 then mobile_mrc_bom else b_totalmrc end as b_totalmrc,
-    case when num_row > 1 then mobile_mrc_eom else e_totalmrc end as e_totalmrc,
-    case when num_row > 1 and lower(b_fmctype) like '%fmc%' then 'Mobile Only' else b_fmctype end as b_fmctype, 
-    case when num_row > 1 and lower(e_fmctype) like '%fmc%' then 'Mobile Only' else e_fmctype end as e_fmctype,
+    case when num_row > 2 then b_mobilergus else b_totalrgus end as b_totalrgus,
+    case when num_row > 2 then e_mobilergus else e_totalrgus end as e_totalrgus,
+    case when num_row > 2 then mobile_mrc_bom else b_totalmrc end as b_totalmrc,
+    case when num_row > 2 then mobile_mrc_eom else e_totalmrc end as e_totalmrc,
+    case when num_row > 2 and lower(b_fmctype) like '%fmc%' then 'Mobile Only' else b_fmctype end as b_fmctype, 
+    case when num_row > 2 and lower(e_fmctype) like '%fmc%' then 'Mobile Only' else e_fmctype end as e_fmctype,
     finalchurnflag, --- ?
-    case when num_row > 1 and b_fmc_segment = 'P4' then 'P1_Mobile' else b_fmc_segment end as b_fmc_segment,
-    case when num_row > 1 and e_fmc_segment = 'P4' then 'P1_Mobile' else e_fmc_segment end as e_fmc_segment,
-    case when num_row > 1 and b_final_tech_flag = 'FTTH' then 'Wireless' else b_final_tech_flag end as b_final_tech_flag,
-    case when num_row > 1 and e_final_tech_flag = 'FTTH' then 'Wireless' else e_final_tech_flag end as e_final_tech_flag,
+    case when num_row > 2 then concat('P', cast(b_mobilergus as varchar), '_Mobile') else b_fmc_segment end as b_fmc_segment,
+    case when num_row > 2 then concat('P', cast(e_mobilergus as varchar), '_Mobile') else e_fmc_segment end as e_fmc_segment,
+    b_final_tech_flag,
+    e_final_tech_flag,
     partial_total_churnflag,
     churntypefinalflag,
     churnsubtypefinalflag,
@@ -134,11 +134,11 @@ SELECT
     waterfall_flag, --- ?
     downsell_split,  --- ?
     downspin_split --- ?
-FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM"dg-sandbox"."cwc_fmc_feb2023")
+FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM "dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Fixed_Account in (SELECT Fixed_Account FROM accounts_tier WHERE fmc_count > 1)
-    -- and Fixed_Account = '995147450000'
--- ORDER BY Fixed_Account desc
+--     and Fixed_Account = '995147450000'
+ORDER BY Fixed_Account desc
 
 
 -- SELECT
