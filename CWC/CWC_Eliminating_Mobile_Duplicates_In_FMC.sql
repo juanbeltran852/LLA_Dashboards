@@ -177,9 +177,9 @@ SELECT
     case when num_row > 1 then finalfixedchurnflag else churntypefinalflag end as churntypefinalflag,
     case when num_row > 1 then finalfixedchurnflag else churnsubtypefinalflag end as churnsubtypefinalflag,
     case 
-        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and fixedchurntenuresegment = 'Early-life' then 'Early tenure'
-        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and fixedchurntenuresegment = 'Mid-life' then 'Mid tenure'
-        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and fixedchurntenuresegment = 'Late-life' then 'Late tenure'
+        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '0.Early-tenure Churner' then 'Early tenure'
+        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '1.Mid-tenure Churner' then 'Mid tenure'
+        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '2.Late-tenure Churner' then 'Late tenure'
     else churntenurefinalflag end as churntenurefinalflag,
     -- case 
     --     when num_row > 1 and mobile_rejoinermonth = 0 then null 
