@@ -132,11 +132,11 @@ SELECT
         when num_row > 1 and finalmobilechurnflag is null then 'Non Churner' 
     else finalchurnflag end as finalchurnflag,
     case 
-        when num_row > 1 and mobile_activebom = 1 then concat('P', cast(b_mobilergus as varchar), '_Mobile') 
+        when num_row > 1 and mobile_activebom = 1 then 'P1_Mobile' 
         when num_row > 1 and mobile_activebom = 0 then null
     else b_fmc_segment end as b_fmc_segment,
     case 
-        when num_row > 1 and mobile_activeeom = 1 then concat('P', cast(e_mobilergus as varchar), '_Mobile') 
+        when num_row > 1 and mobile_activeeom = 1 then 'P1_Mobile'
         when num_row > 1 and mobile_activeeom = 0 then null 
     else e_fmc_segment end as e_fmc_segment,
     case 
@@ -183,7 +183,7 @@ SELECT
 FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM "dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Fixed_Account in (SELECT Fixed_Account FROM accounts_tier WHERE fmc_count > 1)
-    and Fixed_Account = '995147450000'
+--     and Fixed_Account = '995147450000'
 ORDER BY Fixed_Account desc
 
 
