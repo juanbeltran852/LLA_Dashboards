@@ -151,62 +151,63 @@ SELECT
     case when num_row > 1 and lower(b_fmctype) like '%fmc%' then 'Fixed Only' else b_fmctype end as b_fmctype, 
     case when num_row > 1 and lower(e_fmctype) like '%fmc%' then 'Fixed Only' else e_fmctype end as e_fmctype,
     case 
-        when num_row > 1 and finalfixedchurnflag is not null then 'Fixed Churner'
-        when num_row > 1 and finalfixedchurnflag is null then 'Non Churner' 
+        when num_row > 2 and finalfixedchurnflag is not null then 'Fixed Churner'
+        when num_row > 2 and finalfixedchurnflag is null then 'Non Churner' 
     else finalchurnflag end as finalchurnflag,
     case 
-        when num_row > 1 and activebom = 1 then 'P1_Fixed' 
-        when num_row > 1 and activebom = 0 then null
+        when num_row > 2 and activebom = 1 then 'P1_Fixed' 
+        when num_row > 2 and activebom = 0 then null
     else b_fmc_segment end as b_fmc_segment,
     case 
-        when num_row > 1 and activeeom = 1 then 'P1_Fixed'
-        when num_row > 1 and activeeom = 0 then null 
+        when num_row > 2 and activeeom = 1 then 'P1_Fixed'
+        when num_row > 2 and activeeom = 0 then null 
     else e_fmc_segment end as e_fmc_segment,
     case 
-        when num_row > 1 and activebom = 0 then null
-        when num_row > 1 and activebom = 1 then b_tech_type
+        when num_row > 2 and activebom = 0 then null
+        when num_row > 2 and activebom = 1 then b_tech_type
     else b_final_tech_flag end as b_final_tech_flag,
     case 
-        when num_row > 1 and activeeom = 0 then null
-        when num_row > 1 and activeeom = 1 then e_tech_type 
+        when num_row > 2 and activeeom = 0 then null
+        when num_row > 2 and activeeom = 1 then e_tech_type 
     else e_final_tech_flag end as e_final_tech_flag,
     case 
-        when num_row > 1 and b_numrgus is not null and e_numrgus is null then 'Total Churner'
-        when num_row > 1 and b_numrgus is not null and e_numrgus is not null and b_numrgus > e_numrgus then 'Partial Churner' 
+        when num_row > 2 and b_numrgus is not null and e_numrgus is null then 'Total Churner'
+        when num_row > 2 and b_numrgus is not null and e_numrgus is not null and b_numrgus > e_numrgus then 'Partial Churner' 
     else partial_total_churnflag end as partial_total_churnflag,
-    case when num_row > 1 then finalfixedchurnflag else churntypefinalflag end as churntypefinalflag,
-    case when num_row > 1 then finalfixedchurnflag else churnsubtypefinalflag end as churnsubtypefinalflag,
+    case when num_row > 2 then finalfixedchurnflag else churntypefinalflag end as churntypefinalflag,
+    case when num_row > 2 then finalfixedchurnflag else churnsubtypefinalflag end as churnsubtypefinalflag,
     case 
-        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '0.Early-tenure Churner' then 'Early tenure'
-        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '1.Mid-tenure Churner' then 'Mid tenure'
-        when num_row > 1 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '2.Late-tenure Churner' then 'Late tenure'
+        when num_row > 2 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '0.Early-tenure Churner' then 'Early tenure'
+        when num_row > 2 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '1.Mid-tenure Churner' then 'Mid tenure'
+        when num_row > 2 and fixedchurnflag = '1. Fixed Churner' and churntenuresegment = '2.Late-tenure Churner' then 'Late tenure'
     else churntenurefinalflag end as churntenurefinalflag,
-    -- case 
-    --     when num_row > 1 and mobile_rejoinermonth = 0 then null 
-    --     when num_row > 1 and mobile_rejoinermonth = 1 then 'Mobile Rejoiner' 
-    -- else rejoiner_finalflag end as rejoiner_finalflag,
-    -- case 
-    --     when num_row > 1 and mobile_activebom = 1 and b_mobilergus > e_mobilergus and finalmobilechurnflag is null then 'Downsell-Fixed Customer Gap'
-    --     when num_row > 1 and (mobile_activebom = 0 and mobile_activeeom = 1) and ((mobilemovementflag = '3.New Customer') or (MobileMovementFlag = '4.Come Back to Life' and mobile_rejoinermonth = 0)) then 'Gross Ads'
-    --     when num_row > 1 and (mobile_activebom = 0 and mobile_activeeom = 1) and (mobilemovementflag = '4.Come Back to Life') and (mobile_rejoinermonth = 1 and e_mobilergus = 1) then 'Mobile Rejoiner'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus < e_mobilergus) then 'Upsell'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) then 'Downsell'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) and (mobile_mrc_bom = mobile_mrc_eom) then 'Maintain'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) and (mobile_mrc_bom < mobile_mrc_eom) then 'Upspin'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) and (mobile_mrc_bom > mobile_mrc_eom) then 'Downspin'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 0) and (finalmobilechurnflag = 'Voluntary') then 'Voluntary Churners'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 0) and (finalmobilechurnflag = 'Involuntary') then 'Involuntary Churners'
-    -- else waterfall_flag end as waterfall_flag, 
-    -- case 
-    --     when num_row > 1 and e_mobilergus < b_mobilergus then 'Voluntary'
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) and (finalmobilechurnflag is not null) then finalmobilechurnflag
-    --     when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) and (mobilemovementflag = '2.Loss' and MobileChurnFlag = '2. Mobile NonChurner') then 'Undefined'
-    -- else downsell_split end as downsell_split,
-    -- case when num_row > 1 and (mobile_activebom = 1 and mobile_activeeom = 1) and (b_mobilergus > e_mobilergus) and (mobile_mrc_bom > mobile_mrc_eom) then 'Voluntary' else downspin_split end as downspin_split
+    case 
+        when num_row > 2 and fixed_rejoinermonth = 0 then null 
+        when num_row > 2 and fixed_rejoinermonth = 1 then 'Fixed Rejoiner' 
+    else rejoiner_finalflag end as rejoiner_finalflag,
+    case 
+        when num_row > 2 and activebom = 1 and b_numrgus > e_numrgus and (MainMovement = '6.Null last day' or MainMovement is null)  and finalfixedchurnflag is null then 'Downsell-Fixed Customer Gap'
+        when num_row > 2 and ((activebom = 1 and activeeom = 1) and (e_numrgus = 0) and fixedchurnflag != '1. Fixed Churner') or ((activebom = 1 and b_numrgus = 0)) or (fixedchurnflag = '1. Fixed Churner' and (activebom = 0 or activebom is null)) then 'Fixed Base Exceptions'
+        when num_row > 2 and (activebom = 0 and activeeom = 1) and ((mainmovement = '4.New Customer') or (mainmovement = '5.Come Back to Life' and fixed_rejoinermonth = 0)) then 'Gross Ads'
+        when num_row > 2 and (activebom = 0 and activeeom = 1) and (mainmovement = '5.Come Back to Life') and (fixed_rejoinermonth = 1) then 'Fixed Rejoiner'
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus < e_numrgus) then 'Upsell'
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) then 'Downsell'
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) and (b_mrc = e_mrc) then 'Maintain'
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) and (b_mrc < e_mrc) then 'Upspin'
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) and (b_mrc > e_mrc) then 'Downspin'
+        when num_row > 2 and (activebom = 1 and activeeom = 0) and (finalfixedchurnflag = 'Voluntary') then 'Voluntary Churners'
+        when num_row > 2 and (activebom = 1 and activeeom = 0) and (finalfixedchurnflag = 'Involuntary') then 'Involuntary Churners'
+    else waterfall_flag end as waterfall_flag, 
+    case 
+        when num_row > 2 and mainmovement = '3.Downsell' then 'Voluntary'
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) and (finalfixedchurnflag is not null) then finalfixedchurnflag
+        when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) and (mainmovement='6.Null last day') then 'Undefined'
+    else downsell_split end as downsell_split,
+    case when num_row > 2 and (activebom = 1 and activeeom = 1) and (b_numrgus > e_numrgus) and (b_mrc > e_mrc) then 'Voluntary' else downspin_split end as downspin_split
 FROM (SELECT *, row_number() OVER (PARTITION BY mobile_account ORDER BY fixed_account desc) as num_row FROM "dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Mobile_Account in (SELECT Mobile_Account FROM accounts_tier WHERE fmc_count > 1)
-    -- and Fixed_Account = '995147450000'
+    -- and Mobile_Account = '295191490000'
 ORDER BY Mobile_Account desc
 
 
