@@ -149,7 +149,7 @@ SELECT
     else e_final_tech_flag end as e_final_tech_flag,
     case 
         when num_row > 1 and b_mobilergus is not null and e_mobilergus is null then 'Total Churner'
-        when num_row > 1 and b_mobilergus is not null and e_mobilergus is not null and b_mobilergus > e_mobilergus then 'Partial Chuners' 
+        when num_row > 1 and b_mobilergus is not null and e_mobilergus is not null and b_mobilergus > e_mobilergus then 'Partial Churner' 
     else partial_total_churnflag end as partial_total_churnflag,
     case when num_row > 1 then finalmobilechurnflag else churntypefinalflag end as churntypefinalflag,
     case when num_row > 1 then finalmobilechurnflag else churnsubtypefinalflag end as churnsubtypefinalflag,
@@ -183,7 +183,7 @@ SELECT
 FROM (SELECT *, row_number() OVER (PARTITION BY fixed_account ORDER BY mobile_account desc) as num_row FROM "dg-sandbox"."cwc_fmc_feb2023")
 WHERE
     Fixed_Account in (SELECT Fixed_Account FROM accounts_tier WHERE fmc_count > 1)
---     and Fixed_Account = '995147450000'
+    and Fixed_Account = '995147450000'
 ORDER BY Fixed_Account desc
 
 
