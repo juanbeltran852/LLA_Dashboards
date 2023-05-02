@@ -124,18 +124,18 @@ order by 1*/
 SELECT
     fixed_account, 
     mobile_account, 
-    row_number() OVER (PARTITION BY fixed_account ORDER BY fixed_account, mobile_account desc) as num_row_fixed
+    case when fixed_account is null then null else row_number() OVER (PARTITION BY fixed_account ORDER BY fixed_account, mobile_account desc) end as num_row_fixed
 FROM Final_FixedBase f FULL OUTER JOIN Mobile_Base m
 ON f.f_contactphone = m.Mobile_Phone and f.Fixed_Month = m.Mobile_Month
 )
 
-, repeated_mobile_panel as (
+, repeated_both_panel as (
 SELECT
-    fixed_account,
-    mobile_account,
-    row_number() OVER (PARTITION BY mobile_account ORDER BY mobile_account, fixed_account desc) as num_row_mobile
-FROM Final_FixedBase f FULL OUTER JOIN Mobile_Base m
-ON f.f_contactphone = m.Mobile_Phone and f.Fixed_Month = m.Mobile_Month
+    mobile_account, 
+    fixed_account, 
+    num_row_fixed, 
+    case when mobile_account is null then null else row_number() OVER (PARTITION BY mobile_account ORDER BY mobile_account, fixed_account desc) end as num_row_mobile
+FROM repeated_fixed_panel
 )
 
 ,FullCustomerBase AS(
@@ -182,39 +182,157 @@ m.Mobile_RejoinerMonth, m.FinalMobileChurnFlag,
 --f.*, m.* EXCEPT (mobile_phone),
 (COALESCE(B_NumRGUs,0) + COALESCE(B_MobileRGUs,0)) as B_TotalRGUs, (COALESCE(E_NumRGUs,0) + COALESCE(E_MobileRGUs,0)) AS E_TotalRGUs,
 cast((COALESCE(B_MRC,0) + COALESCE(Mobile_MRC_BOM, 0)) as integer) as B_TotalMRC, cast((COALESCE(E_MRC,0) + COALESCE(Mobile_MRC_EOM, 0))as integer) AS E_TotalMRC
--- FROM (SELECT 
---         case when A.num_row_fixed > 1 then null else A.fixed_account end as fixed_account, 
---         case when B.num_row_mobile > 2 then null else B.mobile_account end as mobile_account
---     FROM repeated_fixed_panel A
---     FULL OUTER JOIN repeated_mobile_panel B
---         ON ((A.fixed_account = B.fixed_account) or (A.mobile_account = B.mobile_account))
---     ) A
+
+--- ### Eliminating duplicated FMC accounts.
 FROM (SELECT 
         case when num_row_fixed > 1 then null else fixed_account end as fixed_account, 
-        mobile_account
-    FROM repeated_fixed_panel
+        case when num_row_mobile > 2 then null else mobile_account end as mobile_account
+    FROM repeated_both_panel
     ) A
 LEFT JOIN Final_FixedBase F
     ON A.fixed_account = F.fixed_account
 LEFT JOIN Mobile_Base M
     ON A.mobile_account = M.mobile_account
 
+--- ### Previous treatment (generates duplicates for FMC accounts)
+
 -- Final_FixedBase f FULL OUTER JOIN Mobile_Base m
 -- ON f.f_contactphone = m.Mobile_Phone and f.Fixed_Month = m.Mobile_Month
 )
 
--- SELECT 
---     fixed_account, 
---     mobile_account
--- FROM Final_FixedBase f 
--- FULL OUTER JOIN Mobile_Base m
---     ON f.f_contactphone = m.Mobile_Phone and f.Fixed_Month = m.Mobile_Month
--- -- FROM fullcustomerbase
--- WHERE 
---     fixed
---     Fixed_Account = '995147450000'
+, CustomerBase_FMCFlags AS(
+ 
+ SELECT t.*,
+ CASE 
+ WHEN (B_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveBOM = 0 OR MOBILE_ACTIVEBOM IS NULL))) AND B_MixCode_Adj = '1P' THEN 'Fixed 1P'
+ WHEN (B_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveBOM = 0 OR MOBILE_ACTIVEBOM IS NULL)))AND B_MixCode_Adj = '2P' THEN 'Fixed 2P'
+ WHEN (B_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveBOM = 0 OR MOBILE_ACTIVEBOM IS NULL)) )AND B_MixCode_Adj = '3P' THEN 'Fixed 3P'
+ WHEN (B_FMC_Status = 'Near FMC' OR B_FMC_Status = 'Soft/Hard FMC') AND (ActiveBOM = 0 OR ActiveBOM is null or B_NumRGUs= 0) AND Final_BOM_ActiveFlag = 1 then 'Mobile Only'
+ WHEN (B_FMC_Status = 'Soft/Hard FMC' OR B_FMC_Status =  'Near FMC' OR  B_FMC_Status = 'Mobile Only') AND Final_BOM_ActiveFlag = 1 THEN B_FMC_Status
+ END AS B_FMCType,
+ CASE 
+ WHEN (E_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveEOM = 0 OR MOBILE_ACTIVEEOM IS NULL OR FinalMobileChurnFlag is not null)))  AND E_MixCode_Adj = '1P' and (FinalFixedChurnFlag is null or (FinalFixedChurnFlag = 'CST Churner' and ActiveEOM = 1)) THEN 'Fixed 1P'
+ WHEN (E_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveEOM = 0 OR MOBILE_ACTIVEEOM IS NULL OR FinalMobileChurnFlag is not null)))  AND E_MixCode_Adj = '2P' and (FinalFixedChurnFlag is null or (FinalFixedChurnFlag = 'CST Churner' and ActiveEOM = 1)) THEN 'Fixed 2P'
+ WHEN (E_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveEOM = 0 OR MOBILE_ACTIVEEOM IS NULL OR FinalMobileChurnFlag is not null)))  AND E_MixCode_Adj = '3P' and (FinalFixedChurnFlag is null or (FinalFixedChurnFlag = 'CST Churner' and ActiveEOM = 1)) THEN 'Fixed 3P'
+ WHEN ((E_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveEOM = 0 OR MOBILE_ACTIVEEOM IS NULL)))AND E_MixCode_Adj IS NULL AND (FinalFixedChurnFlag is not null AND FinalMobileChurnFlag is not null)) OR (FinalFixedChurnFlag is not null AND FinalMobileChurnFlag is not null)   THEN NULL
+ WHEN (E_FMC_Status = 'Fixed Only' OR ((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC') AND (Mobile_ActiveEOM = 0 OR MOBILE_ACTIVEEOM IS NULL)))AND E_MixCode_Adj IS NULL AND FinalFixedChurnFlag IS NULL  THEN 'Fixed Gap Customer'
+  WHEN ((E_FMC_Status = 'Mobile Only') OR ((E_FMC_Status = 'Near FMC' OR E_FMC_Status = 'Soft/Hard FMC') AND (ActiveEOM = 0 OR ActiveEOM is null or FixedChurnFlag = '1. Fixed Churner' OR E_NumRGUs = 0))) AND (FinalMobileChurnFlag is null)  then 'Mobile Only'
+ WHEN E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status =  'Near FMC' THEN E_FMC_Status
+ END AS E_FMCType,
+ CASE WHEN ((FinalFixedChurnFlag is not null and FinalFixedChurnFlag <> 'CST Churner') and FinalMobileChurnFlag is not null) THEN 'Churner'
+ WHEN (FinalFixedChurnFlag is not null and ((FinalFixedChurnFlag = 'CST Churner' and activeEOM = 0) or (FinalFixedChurnFlag <> 'CST Churner')) and FinalMobileChurnFlag is null) THEN 'Fixed Churner'
+ WHEN ((FinalFixedChurnFlag is null OR FinalFixedChurnFlag = 'CST Churner')  AND FinalMobileChurnFlag is not null --AND Mobile_ActiveBOM = 1
+ ) THEN 'Mobile Churner'
+ ELSE 'Non Churner' END AS FinalChurnFlag
+ FROM FullCustomerBase t
+),
 
-SELECT * FROM FullCustomerBase 
+FullCustomerBase_FMCSegments AS(
+SELECT DISTINCT f.*,
+CASE WHEN ((B_FMCType = 'Soft/Hard FMC' OR B_FMCType = 'Near FMC') and (ActiveBOM = 1 AND Mobile_ActiveBOM = 1) AND B_MixCode_Adj = '1P') THEN 'P2'
+WHEN ((B_FMCType = 'Soft/Hard FMC' OR B_FMCType = 'Near FMC') and (ActiveBOM = 1 AND Mobile_ActiveBOM = 1) AND B_MixCode_Adj = '2P') THEN 'P3'
+WHEN ((B_FMCType = 'Soft/Hard FMC' OR B_FMCType = 'Near FMC')and (ActiveBOM = 1 AND Mobile_ActiveBOM = 1) AND B_MixCode_Adj = '3P') THEN 'P4'
+WHEN ActiveBOM= 1 AND(Mobile_ActiveBOM= 0 OR Mobile_ActiveBOM IS NULL)  THEN 'P1_Fixed'
+WHEN (ActiveBOM= 0 OR ActiveBOM IS NULL) AND Mobile_ActiveBOM= 1 THEN 'P1_Mobile'
+END AS B_FMC_Segment,
+CASE WHEN ((E_FMCType = 'Soft/Hard FMC' OR E_FMCType = 'Near FMC') and (ActiveEOM = 1 AND Mobile_ActiveEOM = 1) AND E_MixCode_Adj = '1P' AND FinalChurnFlag = 'Non Churner') THEN 'P2'
+WHEN ((E_FMCType = 'Soft/Hard FMC' OR E_FMCType = 'Near FMC') and (ActiveEOM = 1 AND Mobile_ActiveEOM = 1) AND E_MixCode_Adj = '2P' AND FinalChurnFlag = 'Non Churner') THEN 'P3'
+WHEN ((E_FMCType = 'Soft/Hard FMC'OR E_FMCType = 'Near FMC') and (ActiveEOM = 1 AND Mobile_ActiveEOM = 1) AND E_MixCode_Adj = '3P' AND FinalChurnFlag = 'Non Churner') THEN 'P4'
+WHEN (E_FMC_Status = 'Fixed Only' and FinalChurnFlag = 'Fixed Churner') OR (E_FMC_Status = 'Mobile Only' and FinalChurnFlag = 'Mobile Churner')  OR FinalChurnFlag = 'Churner' THEN NULL
+WHEN (E_FMCType = 'Soft/Hard FMC' OR E_FMCType = 'Near FMC') and ((ActiveEOM = 1 AND Mobile_ActiveEOM = 1) AND (E_MixCode_Adj IS NULL AND FinalChurnFlag = 'Non Churner')) OR (((ActiveEOM= 0 OR ActiveEOM IS NULL OR FinalChurnFlag = 'Fixed Churner' or FixedChurnFlag = '1. Fixed Churner') AND Mobile_ActiveEOM= 1)) THEN 'P1_Mobile'
+WHEN (E_FMCType = 'Mobile Only' and Mobile_ActiveEOM = 1 and FinalChurnFlag <> 'Mobile Churner' and FinalChurnFlag <> 'Churner') THEN 'P1_Mobile'
+WHEN (E_FMCType = 'Fixed Gap Customer') then E_FMCType
+WHEN (ActiveEOM= 1 AND (Mobile_ActiveEOM= 0 OR Mobile_ActiveEOM IS NULL OR FinalChurnFlag = 'Mobile Churner') AND FixedChurnFlag <> '1. Fixed Churner')  THEN 'P1_Fixed'
+WHEN (ActiveEOM = 1 AND FinalChurnFlag = 'Fixed Churner' AND (Mobile_ActiveEOM = 0 OR Mobile_ActiveEOM IS NULL)) OR (Mobile_ActiveEOM = 1 AND FinalChurnFlag = 'Mobile Churner' AND (ActiveEOM = 0 OR ActiveEOM IS NULL)) THEN NULL
+END AS E_FMC_Segment,
+CASE WHEN B_FMCType = 'Mobile Only' THEN 'Wireless'
+WHEN  B_FMC_Status ='Fixed Only' or B_FMC_Status = 'Soft/Hard FMC' OR B_FMC_Status = 'Near FMC' THEN B_Tech_Type
+END AS B_Final_Tech_Flag,
+CASE WHEN (E_FMC_Status = 'Mobile Only' and FinalChurnFlag = 'Mobile Churner') 
+OR (E_FMC_Status = 'Fixed Only' and FinalChurnFlag = 'Fixed Churner') OR
+((E_FMC_Status = 'Soft/Hard FMC' OR E_FMC_Status ='Near FMC') AND FinalChurnFlag = 'Churner') THEN NULL
+WHEN E_FMCType = 'Mobile Only' THEN 'Wireless' 
+WHEN E_FMC_Status ='Fixed Only' or E_FMC_Status = 'Soft/Hard FMC'OR E_FMC_Status = 'Near FMC' THEN E_Tech_Type
+END AS E_Final_Tech_Flag
+FROM CustomerBase_FMCFlags f
+),
+
+FullCustomerBase_AllFlags AS(
+SELECT DISTINCT f.*,
+CASE WHEN (FinalChurnFlag = 'Churner') OR (FinalChurnFlag = 'Fixed Churner' and B_FMC_Segment = 'P1_Fixed' and E_FMC_Segment is null) OR (FinalChurnFlag = 'Mobile Churner' and B_FMC_Segment = 'P1_Mobile' and E_FMC_Segment is null) then 'Total Churner'
+WHEN FinalChurnFlag = 'Non Churner' then null
+ELSE 'Partial Churner' end as Partial_Total_ChurnFlag,
+CASE WHEN (FinalChurnFlag = 'Churner' AND (FinalFixedChurnFlag = 'Voluntary' OR FinalFixedChurnFlag = 'Incomplete CST' OR FinalFixedChurnFlag = 'CST Churner') AND FinalMobileChurnFlag = 'Voluntary') OR (FinalChurnFlag = 'Fixed Churner' AND (FinalFixedChurnFlag = 'Voluntary' OR FinalFixedChurnFlag = 'Incomplete CST' OR FinalFixedChurnFlag = 'CST Churner')) OR (FinalChurnFlag = 'Mobile Churner' AND FinalMobileChurnFlag = 'Voluntary' OR FinalMobileChurnFlag = 'Incomplete CST') 
+    THEN 'Voluntary'
+WHEN (FinalChurnFlag = 'Churner' AND (FinalFixedChurnFlag = 'Involuntary' OR FinalFixedChurnFlag = 'Early Dx') AND (FinalMobileChurnFlag = 'Involuntary' OR FinalMobileChurnFlag = 'Early Dx')) OR (FinalChurnFlag = 'Fixed Churner' AND (FinalFixedChurnFlag = 'Involuntary' OR FinalFixedChurnFlag = 'Early Dx')) OR (FinalChurnFlag = 'Mobile Churner' AND (FinalMobileChurnFlag = 'Involuntary' OR FinalMobileChurnFlag = 'Early Dx')) THEN 'Involuntary'
+WHEN FinalChurnFlag = 'Churner' AND (((FinalFixedChurnFlag = 'Involuntary' or FinalFixedChurnFlag = 'Early Dx') and (FinalMobileChurnFlag = 'Voluntary' or FinalMobileChurnFlag = 'Incomplete CST')) OR ((FinalFixedChurnFlag = 'Voluntary' or FinalFixedChurnFlag = 'Incomplete CST' or FinalFixedChurnFlag = 'CST Churner') and (FinalMobileChurnFlag = 'Involuntary' or FinalMobileChurnFlag = 'Early Dx'))) THEN 'Mixed'
+END AS ChurnTypeFinalFlag,
+CASE WHEN (FinalChurnFlag = 'Churner' AND (FinalFixedChurnFlag = 'Voluntary' AND FinalMobileChurnFlag = 'Voluntary')) OR (FinalChurnFlag = 'Fixed Churner' AND FinalFixedChurnFlag = 'Voluntary') OR (FinalChurnFlag = 'Mobile Churner' AND FinalMobileChurnFlag = 'Voluntary') THEN 'Voluntary'
+WHEN (FinalChurnFlag = 'Churner' AND (FinalFixedChurnFlag = 'Incomplete CST' OR FinalFixedChurnFlag = 'CST Churner') AND FinalMobileChurnFlag = 'Incomplete CST') OR (FinalChurnFlag = 'Fixed Churner' AND (FinalFixedChurnFlag = 'Incomplete CST' OR FinalFixedChurnFlag = 'CST Churner')) OR (FinalChurnFlag = 'Mobile Churner' AND FinalMobileChurnFlag = 'Incomplete CST') THEN 'Incomplete CST'
+WHEN FinalChurnFlag = 'Churner' AND (((FinalFixedChurnFlag = 'Incomplete CST' OR FinalFixedChurnFlag = 'CST Churner') AND FinalMobileChurnFlag = 'Voluntary') 
+OR (FinalFixedChurnFlag = 'Voluntary' AND (FinalMobileChurnFlag = 'Incomplete CST' OR 
+FinalMobileChurnFlag = 'CST Churner'))) THEN 'Mixed Voluntary/CST'
+WHEN (FinalChurnFlag = 'Churner' AND FinalFixedChurnFlag = 'Early Dx' AND FinalMobileChurnFlag = 'Early Dx') OR (FinalChurnFlag = 'Fixed Churner' AND FinalFixedChurnFlag = 'Early Dx') OR (FinalChurnFlag = 'Mobile Churner' AND FinalMobileChurnFlag = 'Early Dx') THEN 'Early Dx'
+WHEN (FinalChurnFlag = 'Churner' AND FinalFixedChurnFlag = 'Involuntary' AND FinalMobileChurnFlag = 'Involuntary') OR (FinalChurnFlag = 'Fixed Churner' AND FinalFixedChurnFlag = 'Involuntary') OR (FinalChurnFlag = 'Mobile Churner' AND FinalMobileChurnFlag = 'Involuntary') THEN 'Involuntary'
+WHEN FinalChurnFlag = 'Churner' AND ((FinalFixedChurnFlag = 'Involuntary' AND FinalMobileChurnFlag = 'Early Dx') OR (FinalFixedChurnFlag = 'Early Dx' AND FinalMobileChurnFlag = 'Involuntary')) THEN 'Mixed Involuntary/Early Dx'
+END AS ChurnSubtypeFinalFlag,
+CASE WHEN (FinalChurnFlag = 'Churner' AND ChurnTenureSegment = '0.Early-tenure Churner' AND MobileChurnTenureSegment = 'Early-life') OR (FinalChurnFlag = 'Fixed Churner' AND ChurnTenureSegment = '0.Early-tenure Churner') OR (FinalChurnFlag = 'Mobile Churner' AND MobileChurnTenureSegment = 'Early-life') THEN 'Early tenure'
+WHEN (FinalChurnFlag = 'Churner' AND ChurnTenureSegment = '1.Mid-tenure Churner' AND MobileChurnTenureSegment = 'Mid-life') OR (FinalChurnFlag = 'Fixed Churner' AND ChurnTenureSegment = '1.Mid-tenure Churner') OR (FinalChurnFlag = 'Mobile Churner' AND MobileChurnTenureSegment = 'Mid-life')  THEN 'Mid tenure'
+WHEN (FinalChurnFlag = 'Churner' AND ChurnTenureSegment = '2.Late-tenure Churner' AND MobileChurnTenureSegment = 'Late-life') OR (FinalChurnFlag = 'Fixed Churner' AND ChurnTenureSegment = '2.Late-tenure Churner') OR (FinalChurnFlag = 'Mobile Churner' AND MobileChurnTenureSegment = 'Late-life')  THEN 'Late tenure'
+WHEN FinalChurnFlag = 'Churner' AND ((ChurnTenureSegment = '0.Early-tenure Churner' AND (MobileChurnTenureSegment = 'Late-life' or MobileChurnTenureSegment = 'Mid-life')) OR ((ChurnTenureSegment = '2.Late-tenure Churner' or ChurnTenureSegment = '1.Mid-tenure Churner')  AND MobileChurnTenureSegment = 'Early-life')) THEN 'Early tenure'
+END AS ChurnTenureFinalFlag
+,CASE WHEN Fixed_RejoinerMonth = 1 AND (Mobile_RejoinerMonth IS NULL OR Mobile_RejoinerMonth = 0) and E_FMC_Segment = 'P1_Fixed' THEN 'Fixed Rejoiner'
+WHEN Mobile_RejoinerMonth = 1  AND (Fixed_RejoinerMonth IS NULL OR Fixed_RejoinerMonth = 0 ) and E_FMC_Segment = 'P1_Mobile' THEN 'Mobile Rejoiner'
+WHEN (Mobile_RejoinerMonth = 1 and Fixed_RejoinerMonth = 1) OR ((Fixed_RejoinerMonth = 1 OR Mobile_RejoinerMonth = 1) and  (E_FMCType = 'Soft/Hard FMC' OR E_FMCType = 'Near FMC')) THEN 'FMC Rejoiner'
+END AS Rejoiner_FinalFlag
+FROM FullCustomerBase_FMCSegments f
+),
+
+FullCustomersBase_Flags_Waterfall AS(
+
+SELECT DISTINCT f.*,
+CASE 
+WHEN ((Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) or (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 0)) AND (coalesce(B_TotalRGUs,0) > coalesce(E_TotalRGUs,0)) AND (MainMovement= '6.Null last day' OR MainMovement IS NULL) AND FinalChurnFlag = 'Non Churner' THEN 'Downsell-Fixed Customer Gap'
+WHEN ((ActiveBOM = 1 and ActiveEOM = 1) AND (E_NumRGUs = 0) AND FixedChurnFlag <> '1. Fixed Churner') OR ((ActiveBOM = 1 and B_NumRGUs = 0)) OR (FixedChurnFlag = '1. Fixed Churner' and (ActiveBOM = 0 or ActiveBOM is null)) THEN 'Fixed Base Exceptions'
+WHEN (Final_BOM_ActiveFlag = 0 and Final_EOM_ActiveFlag = 1) AND ((MainMovement = '4.New Customer' AND MobileMovementFlag = '3.New Customer') OR (MainMovement = '4.New Customer' AND MobileMovementFlag IS NULL) OR (MainMovement IS NULL AND MobileMovementFlag = '3.New Customer'))  THEN 'Gross Ads'
+WHEN (Final_BOM_ActiveFlag = 0 and Final_EOM_ActiveFlag = 1) AND (MainMovement = '5.Come Back to Life' OR MobileMovementFlag = '4.Come Back to Life') AND (Rejoiner_FinalFlag IS NULL) THEN 'Gross Ads'
+WHEN (Final_BOM_ActiveFlag = 0 and Final_EOM_ActiveFlag = 1) AND (((Rejoiner_FinalFlag ='Fixed Rejoiner' OR Rejoiner_FinalFlag = 'Mobile Rejoiner') AND (E_FMCType = 'Soft/Hard FMC' OR E_FMCType = 'Near FMC'))  OR Rejoiner_FinalFlag = 'FMC Rejoiner') THEN 'FMC Rejoiner'
+WHEN (Final_BOM_ActiveFlag = 0 and Final_EOM_ActiveFlag = 1) AND (MainMovement = '5.Come Back to Life') AND (Rejoiner_FinalFlag = 'Fixed Rejoiner' AND E_FMC_Segment = 'P1_Fixed') THEN 'Fixed Rejoiner'
+WHEN (Final_BOM_ActiveFlag = 0 and Final_EOM_ActiveFlag = 1) AND (MobileMovementFlag = '4.Come Back to Life') AND (Rejoiner_FinalFlag = 'Mobile Rejoiner' AND E_FMC_Segment = 'P1_Mobile')  THEN 'Mobile Rejoiner'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) AND  Rejoiner_FinalFlag IS NOT NULL then 'Semi-rejoiner'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) AND (B_TotalRGUs < E_TotalRGUs) THEN 'Upsell'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) AND (B_TotalRGUs > E_TotalRGUs) THEN 'Downsell'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) AND (B_TotalRGUs = E_TotalRGUs) AND (B_TotalMRC = E_TotalMRC) THEN 'Maintain'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) AND (B_TotalRGUs = E_TotalRGUs) AND (B_TotalMRC < E_TotalMRC) THEN 'Upspin'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 1) AND (B_TotalRGUs = E_TotalRGUs) AND (B_TotalMRC > E_TotalMRC)  AND (E_TotalMRC <> 0 ) THEN 'Downspin'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 0) AND (FinalChurnFlag <> 'Non Churner' AND ChurnTypeFinalFlag = 'Voluntary') THEN 'Voluntary Churners'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 0) AND (FinalChurnFlag <> 'Non Churner' AND ChurnTypeFinalFlag = 'Involuntary') THEN 'Involuntary Churners'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 0) AND (FinalChurnFlag <> 'Non Churner' AND ChurnTypeFinalFlag = 'Anticipated Involuntary') THEN 'Anticipated Involuntary Churners'
+WHEN (Final_BOM_ActiveFlag = 1 and Final_EOM_ActiveFlag = 0) AND (FinalChurnFlag <> 'Non Churner' AND ChurnTypeFinalFlag = 'Mixed') THEN 'Mixed Churners'
+END AS Waterfall_Flag
+FROM FullCustomerBase_AllFlags f
+)
+
+,Final_Flags as(
+select distinct f.*
+,Case when MainMovement='3.Downsell' or E_MobileRGUs < B_MobileRGUs then 'Voluntary'
+      when waterfall_flag='Downsell' and FinalChurnFlag <> 'Non Churner' then ChurnTypeFinalFlag
+      when waterfall_flag='Downsell' and (mainmovement='6.Null last day' or (mobilemovementflag = '2.Loss' and MobileChurnFlag = '2. Mobile NonChurner')) then 'Undefined'
+else null end as Downsell_Split
+,case when waterfall_flag='Downspin' then 'Voluntary' else null end as Downspin_Split
+from FullCustomersBase_Flags_Waterfall f
+)
+
+-- SELECT *
+-- FROM Final_Flags
+-- where month = date('2023-02-01')
+
+SELECT 
+    * 
+FROM (SELECT *, row_number() OVER (PARTITION BY final_account ORDER BY f_contactphone desc) as num_row FROM Final_Flags) -- and A.f_contactphone = B.f_contactphone
 WHERE 
-    Fixed_Account = '995147450000'
-    or Mobile_Account in ('293346970000', '297037560000', '159003400000')
+    num_row = 1
+    -- and (Fixed_Account = '995147450000'
+    -- or Mobile_Account in ('293346970000', '297037560000', '159003400000'))
+    -- and (mobile_account = '295191490000'
+    -- or fixed_account in ('282239480000', '285239470000', '282239460000', '288316970000', '287239440000', '284239460000', '50278360', '288239480000', '284239450000', '286239470000', '283239480000', '287239430000', '322694590000', '326849880000'))
