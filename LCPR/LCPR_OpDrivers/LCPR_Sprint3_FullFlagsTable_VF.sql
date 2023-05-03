@@ -3,6 +3,7 @@
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
 --- WARNING: Estimated runtime of 7 minutes.
+--- December may take more than 20 minutes for some reason.
 
 WITH
 
