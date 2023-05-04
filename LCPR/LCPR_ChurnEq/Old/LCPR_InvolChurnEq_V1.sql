@@ -72,7 +72,12 @@ SELECT
     date(bill_from_dte_sbb) as billday,
     sub_acct_no_sbb, 
     delinquency_days as duedays, 
-    
+    21 as firstoverdueday, 
+    -- backlogdate
+    first_value(delinquency_days) over (partition by sub_acct_no_sbb, date(date_trunc('month', date(dt))) order by date(dt) desc) as lastdueday, 
+    bill_from_dte_sbb
+FROM "lcpr.stage.prod"."insights_customer_services_rates_lcpr" 
+-- Residential and dt for input_month
 )
 
 SELECT
