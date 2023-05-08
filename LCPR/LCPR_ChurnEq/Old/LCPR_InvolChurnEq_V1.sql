@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2022-12-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- FMC --- --- --- --- --- --- --- --- --- --- --- ---
@@ -43,7 +43,7 @@ LEFT JOIN repeated_accounts R
 --- --- --- --- --- --- --- --- --- --- --- --- ---  DNA --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 
-, funnel1_dna as (
+, funnel_dna as (
 SELECT
     date_trunc('month', date(dt)) as month, 
     date(dt) as dt, 
@@ -52,7 +52,7 @@ SELECT
     sub_acct_no_sbb, 
     delinquency_days as duedays, 
     30 as firstoverdueday, --- !!!
-    -- backlogdate
+    -- as backlogdate ???
     first_value(delinquency_days) over (partition by sub_acct_no_sbb, date(date_trunc('month', date(dt))) order by date(dt) desc) as lastdueday, 
     bill_from_dte_sbb
 FROM "lcpr.stage.prod"."insights_customer_services_rates_lcpr" 
@@ -69,7 +69,7 @@ WHERE
 SELECT
     distinct *, 
     case when duedays = firstoverdueday then sub_acct_no_sbb else null end as overdueday1flag
-FROM funnel1_dna
+FROM funnel_dna
 )
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
@@ -185,30 +185,49 @@ FROM flags_all_vo
 -- SELECT 
 --     distinct fmc_s_dim_month, 
 --     fmc_b_fla_fmcsegment, 
+--     fmc_b_fla_fmctype, 
+--     fmc_b_fla_tech, 
+--     fix_b_fla_tenure, --- Fixed tenure!
+--     fmc_e_fla_fmcsegment, 
+--     fmc_e_fla_fmctype, 
+--     fmc_e_fla_tech, 
+--     fix_e_fla_tenure,
+--     fix_s_fla_churnflag, 
+--     fix_s_fla_churntype, 
+--     fix_s_fla_mainmovement, 
+--     fmc_s_fla_waterfall, 
     
--- ,B_FMCSegment as che_b_fla_che_segment,B_FMCType as che_b_fla_che_type ,B_Final_TechFlag as che_b_fla_final_tech,b_fixedtenure as che_b_fla_final_tenure,
--- E_FMCSegment as che_e_fla_che_segment,E_FMCType as che_e_fla_che_type,E_Final_TechFlag as che_e_fla_final_tech,e_fixedtenure as che_e_fla_final_tenure,
--- fixedchurnflag as che_s_fla_churn,fixedchurntype as che_s_fla_churn_type/*fixedchurnsubtype as che_s_fla_churn_subtype*/ ,fixedmainmovement as che_s_dim_main_movement,waterfall_flag as che_s_fla_waterfall
+--     count(distinct fix_s_att_account) as che_s_mes_active_base,
+--     count(distinct fix_e_fla_bb) as che_s_mes_total_bb, 
+--     count(distinct fix_e_fla_tv) as che_s_mes_total_tv, 
+--     count(distinct fix_e_fla_vo) as che_s_mes_total_vo, 
+    
+--     count(distinct overdueday1flag) as che_s_mes_day1, 
+--     count(distinct softdxflag) as che_s_mes_softdx, 
+--     count(distinct backlogflag) as che_s_mes_backlog, 
+--     count(distinct harddxflag) as che_s_mes_harddx, 
+    
+--     count(distinct overdueday1_bb) as che_s_mes_overdue1day_bb, 
+--     count(distinct softdx_b) as che_s_mes_softdx_bb, 
+--     count(distinct backlog_b) AS che_s_mes_backlog_bb, 
+--     count(distinct harddx_b) as che_s_mes_harddx_bb, 
+    
+--     count(distinct overdueday1_tv) as che_s_mes_overdue1day_tv, 
+--     count(distinct softdx_tv) as che_s_mes_softdx_tv,
+--     count(distinct backlog_tv) AS che_s_mes_backlog_tv, 
+--     count(distinct harddx_tv) as che_s_mes_harddx_tv, 
+    
+--     count(distinct overdueday1_vo) as che_s_mes_overdue1day_vo, 
+--     count(distinct softdx_vo) as che_s_mes_softdx_vo, 
+--     count(distinct backlog_vo) AS che_s_mes_backlog_vo,
+--     count(distinct harddx_vo) as che_s_mes_harddx_vo
+    
+-- FROM flags_all_vo
+-- GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+-- ORDER BY 1
 
--- ,count(distinct fixedaccount) as che_s_mes_active_base
--- ,count(distinct e_bb) as che_s_mes_total_bb
--- ,count(distinct e_tv) as che_s_mes_total_tv
--- ,count(distinct e_vo) as che_s_mes_total_vo
--- ,count(distinct Overdue1Day) as che_s_mes_day1, count(distinct SoftDx) as che_s_mes_softdx,count(distinct backlog) AS che_s_mes_backlog
--- ,count(distinct harddx) as che_s_mes_harddx 
 
-
--- ,count(distinct Overdue1Day_BB) as che_s_mes_overdue1day_bb, count(distinct SoftDx_BB) as che_s_mes_softdx_bb
--- ,count(distinct backlog_BB) AS che_s_mes_backlog_bb,count(distinct harddx_BB) as che_s_mes_harddx_bb, count(distinct Overdue1Day_TV) as che_s_mes_overdue1day_tv, count(distinct SoftDx_TV) as che_s_mes_softdx_tv
--- ,count(distinct backlog_TV) AS che_s_mes_backlog_tv,count(distinct harddx_TV) as che_s_mes_harddx_tv, count(distinct Overdue1Day_VO) as che_s_mes_overdue1day_vo, count(distinct SoftDx_VO) as che_s_mes_softdx_vo
--- ,count(distinct backlog_VO) AS che_s_mes_backlog_vo,count(distinct harddx_VO) as che_s_mes_harddx_vo
--- FROM Cohort_Flag
--- --WHERE Month=date('2022-02-01') and harddx IS NULL AND backlog IS NOT NULL
--- GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13
--- --order by users
--- order by 1
-
-
--- SELECT * FROM fmc_flags
-
-
+-- SELECT
+--     distinct duedays
+-- FROM funnel_dna
+-- ORDER BY 1 asc
