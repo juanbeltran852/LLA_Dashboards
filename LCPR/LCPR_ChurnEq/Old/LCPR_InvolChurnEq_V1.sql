@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2022-12-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-01-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- FMC --- --- --- --- --- --- --- --- --- --- --- ---
@@ -102,7 +102,7 @@ FROM softdx
 , harddx as (
 SELECT 
     distinct *, 
-    case when duedays >= 85 and lastdueday >= 85 then sub_acct_no_sbb else null end as harddxflag
+    case when duedays >= 85 /* lastdueday >= 85 */ then sub_acct_no_sbb else null end as harddxflag
 FROM backlog
 )
 
@@ -161,7 +161,7 @@ SELECT
     count(distinct overdueday1flag) as overdueday1_clients, 
     count(distinct softdxflag) as softdx_clients, 
     count(distinct backlogflag) as backlog_clients, 
-    count(distinct harddxflag) as harddx_clients, 
+    count(distinct harddxflag) as harddx_clients,
     count(distinct overdueday1_bb) as overdueday1_bb,
     count(distinct overdueday1_tv) as overdueday1_tv, 
     count(distinct overdueday1_vo) as overdueday1_vo,
