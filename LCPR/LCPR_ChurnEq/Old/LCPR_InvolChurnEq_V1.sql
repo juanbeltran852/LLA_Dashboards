@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-01-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- FMC --- --- --- --- --- --- --- --- --- --- --- ---
@@ -53,7 +53,7 @@ SELECT
     delinquency_days as duedays, 
     -- case when delinquency_days = 0 then delinquency_days else date_diff('day', date(bill_from_dte_sbb), date(dt)) end as duedays,
     -- case when delinquency_days = 0 then delinquency_days else delinquency_days - 29 end as duedays,
-    22 as firstoverdueday, --- !!! It should actually be 22. but the counter (delinquency_days) goes from 0 directly to 30.
+    30 as firstoverdueday, --- !!! It should actually be 22. but the counter (delinquency_days) goes from 0 directly to 30.
     -- as backlogdate ???
     first_value(delinquency_days) over (partition by sub_acct_no_sbb, date(date_trunc('month', date(dt))) order by date(dt) desc) as lastdueday, 
     bill_from_dte_sbb
@@ -81,7 +81,7 @@ FROM funnel_dna
 , softdx as (
 SELECT
     distinct *,
-    case when duedays = 46 then sub_acct_no_sbb else null end as softdxflag
+    case when duedays = 50 then sub_acct_no_sbb else null end as softdxflag
 FROM overdueday1
 )
 
