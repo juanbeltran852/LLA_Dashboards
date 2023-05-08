@@ -383,7 +383,7 @@ LEFT JOIN installations b
 , previous_plan as (
 SELECT
     sub_acct_no_sbb, 
-    first_value(play_type) over (partition by sub_acct_no_sbb, dt order by dt asc) as previous_plan_bom
+    first_value(play_type) over (partition by sub_acct_no_sbb order by dt asc) as previous_plan_bom
 FROM "lcpr.stage.prod"."insights_customer_services_rates_lcpr"
 WHERE
     date_trunc('month', date(dt) ) = (SELECT input_month FROM parameters) - interval '1' month
@@ -394,7 +394,7 @@ WHERE
 , current_plan as (
 SELECT
     sub_acct_no_sbb, 
-    first_value(play_type) over (partition by sub_acct_no_sbb, dt order by dt desc) as current_plan_eom
+    first_value(play_type) over (partition by sub_acct_no_sbb order by dt desc) as current_plan_eom
 FROM "lcpr.stage.prod"."insights_customer_services_rates_lcpr"
 WHERE
     date_trunc('month', date(dt) ) = (SELECT input_month FROM parameters)
