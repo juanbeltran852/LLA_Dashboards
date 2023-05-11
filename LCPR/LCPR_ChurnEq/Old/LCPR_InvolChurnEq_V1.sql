@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-01-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- FMC --- --- --- --- --- --- --- --- --- --- --- ---
@@ -104,7 +104,7 @@ FROM softdx
 , harddx as (
 SELECT 
     distinct *, 
-    case when duedays >= 85 /* lastdueday >= 85 */ then sub_acct_no_sbb else null end as harddxflag
+    case when duedays >= 85 or lastdueday >= 85 then sub_acct_no_sbb else null end as harddxflag
 FROM backlog
 )
 
@@ -130,7 +130,7 @@ SELECT
     case when overdueday1flag is not null and fix_e_fla_bb is not null then overdueday1flag else null end as overdueday1_bb, 
     case when softdxflag is not null and fix_e_fla_bb is not null then softdxflag else null end as softdx_bb,
     case when backlogflag is not null and fix_e_fla_bb is not null then backlogflag else null end as backlog_bb,
-    case when harddxflag is not null and fix_e_fla_bb is not null then harddxflag else null end as harddx_bb
+    case when harddxflag is not null and fix_b_fla_bb is not null then harddxflag else null end as harddx_bb
 FROM fmc_involchurn_flags
 )
 
@@ -140,7 +140,7 @@ SELECT
     case when overdueday1flag is not null and fix_e_fla_tv is not null then overdueday1flag else null end as overdueday1_tv, 
     case when softdxflag is not null and fix_e_fla_tv is not null then softdxflag else null end as softdx_tv,
     case when backlogflag is not null and fix_e_fla_tv is not null then backlogflag else null end as backlog_tv,
-    case when harddxflag is not null and fix_e_fla_tv is not null then harddxflag else null end as harddx_tv
+    case when harddxflag is not null and fix_b_fla_tv is not null then harddxflag else null end as harddx_tv
 FROM flags_all_bb
 )
 
@@ -150,7 +150,7 @@ SELECT
     case when overdueday1flag is not null and fix_e_fla_vo is not null then overdueday1flag else null end as overdueday1_vo, 
     case when softdxflag is not null and fix_e_fla_vo is not null then softdxflag else null end as softdx_vo,
     case when backlogflag is not null and fix_e_fla_vo is not null then backlogflag else null end as backlog_vo,
-    case when harddxflag is not null and fix_e_fla_vo is not null then harddxflag else null end as harddx_vo
+    case when harddxflag is not null and fix_b_fla_vo is not null then harddxflag else null end as harddx_vo
 FROM flags_all_tv
 )
 
@@ -176,7 +176,7 @@ SELECT
     count(distinct harddx_bb) as harddx_bb,
     count(distinct harddx_tv) as harddx_tv, 
     count(distinct harddx_vo) as harddx_vo, 
-    count(distinct case when fmc_e_att_active = 1 then fix_s_att_account else null end) as che_s_mes_active_base
+    count(distinct fix_s_att_account) as che_s_mes_active_base
 FROM flags_all_vo
 
 -- SELECT 
