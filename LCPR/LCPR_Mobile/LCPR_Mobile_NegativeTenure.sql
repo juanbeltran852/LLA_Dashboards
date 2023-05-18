@@ -7,7 +7,7 @@ WITH
 
 parameters AS (
 --> Seleccionar el mes en que se desea realizar la corrida
-SELECT  DATE_TRUNC('month',DATE('2023-04-01')) AS input_month
+SELECT  DATE_TRUNC('month',DATE('2023-03-01')) AS input_month
         ,85 as overdue_days
 )
 
@@ -100,7 +100,8 @@ SELECT  A.mob_s_att_ParentAccount
 FROM customer_status A
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) B
 ON A.mob_s_att_ParentAccount = B.parent
-LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
+-- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
+LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) C
 ON A.mob_s_att_ParentAccount = C.parent
 GROUP BY 1,2,3
 )
@@ -280,11 +281,6 @@ WHERE
 -- SELECT *
 -- FROM full_flags
 -- WHERE mob_b_att_active + mob_e_att_active >= 1
--- -- LIMIT 10
-
--- SELECT
---     *
--- FROM extra_users
 
 SELECT
     mob_s_dim_month, 
@@ -294,7 +290,7 @@ SELECT
     mob_s_fla_SpinMovement, 
     mob_s_fla_ChurnFlag, 
     mob_s_fla_ChurnType, 
-    count(distinct mob_s_att_account), 
+    count(distinct mob_s_att_account) as accounts, 
     count(distinct case when mob_b_att_active = 1 then mob_s_att_account else null end) as EOM_RGUs, 
     count(distinct case when mob_e_att_active = 1 then mob_s_att_account else null end) as BOM_RGUs
 FROM full_flags
@@ -302,4 +298,4 @@ WHERE
     mob_b_att_active + mob_e_att_active >= 1
     and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
 GROUP BY 1, 2, 3, 4, 5, 6, 7
-ORDER BY 4 asc, 5 asc, 6 asc
+ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
