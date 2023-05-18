@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------------------
 -------------------------- LCPR POSTPAID TABLE - V2 -------------------------------------
 -----------------------------------------------------------------------------------------
--- CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_mob_apr2023" AS
+--CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_postpaid_table_feb_apr14" AS
 
 WITH 
 
@@ -108,6 +108,7 @@ FROM customer_status A
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) B
 ON A.mob_s_att_ParentAccount = B.parent
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
+-- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) C
 ON A.mob_s_att_ParentAccount = C.parent
 GROUP BY 1,2,3
 )
@@ -228,7 +229,7 @@ WHERE date(dt_fix) = (SELECT input_month FROM parameters) - interval '2' month
     AND subsrptn_sts = 'A'
     AND subsrptn_id NOT IN (SELECT DISTINCT subsrptn_id
                             FROM "lcpr.stage.dev"."tbl_pstpd_cust_cxl_incr_data"
-                            WHERE DATE(dt) = (SELECT input_month FROM parameters) - interval '1' month
+                            WHERE DATE(dt_fix) = (SELECT input_month FROM parameters) - interval '1' month
                             AND cust_sts = 'O'
                             AND acct_type_cd = 'I'
                             AND rgn_nm <> 'VI'
@@ -287,11 +288,6 @@ WHERE
 -- SELECT *
 -- FROM full_flags
 -- WHERE mob_b_att_active + mob_e_att_active >= 1
--- LIMIT 10
-
--- SELECT
---     *
--- FROM extra_users
 
 SELECT
     mob_s_dim_month, 
@@ -307,6 +303,6 @@ SELECT
 FROM full_flags
 WHERE
     mob_b_att_active + mob_e_att_active >= 1
-    -- and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
+    and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
 GROUP BY 1, 2, 3, 4, 5, 6, 7
-ORDER BY 4 asc, 5 asc, 6 asc
+ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
