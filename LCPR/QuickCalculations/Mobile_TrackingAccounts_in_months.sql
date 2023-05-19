@@ -13,25 +13,24 @@ WHERE
 SELECT
     *
 FROM "db_stage_dev"."lcpr_mob_mar2023"
-WHERE
-    mob_s_att_account in (SELECT mob_s_att_account FROM cbacktlife_customers)
+-- WHERE
+    -- mob_s_att_account in (SELECT mob_s_att_account FROM cbacktlife_customers)
 )
 
 , m_2 as (
 SELECT
     *
 FROM "db_stage_dev"."lcpr_mob_feb2023"
-WHERE
-    mob_s_att_account in (SELECT mob_s_att_account FROM m_1)
+-- WHERE
+    -- mob_s_att_account in (SELECT mob_s_att_account FROM m_1)
 )
 
 , m_3 as (
 SELECT
     *
 FROM "db_stage_dev"."lcpr_mob_jan2023"
-WHERE
-    mob_s_att_account in (SELECT mob_s_att_account FROM m_2)
-ORDER BY mob_s_att_account asc
+-- WHERE
+    -- mob_s_att_account in (SELECT mob_s_att_account FROM m_2)
 )
 
 , tracking as (
@@ -46,19 +45,37 @@ SELECT
     A.mob_s_att_account as m_0, 
     A.mob_s_fla_mainmovement as m_0_mainmovement
 FROM cbacktlife_customers A
-FULL OUTER JOIN m_1 B
+LEFT JOIN m_1 B
     ON A.mob_s_att_account = B.mob_s_att_account
-FULL OUTER JOIN m_2 C
+LEFT JOIN m_2 C
     ON A.mob_s_att_account = C.mob_s_att_account
-FULL OUTER JOIN m_3 D
+LEFT JOIN m_3 D
     ON A.mob_s_att_account = D.mob_s_att_account
 )
 
+, month_track as (
 SELECT
-    *
+    *, 
+    case 
+        when (m_1 is not null and m_2 is not null and m_3 is not null) then 'm_0_only'
+        when (m_1 is not null and m_2 is null and m_3 is null) then 'm_1'
+        when (m_1 is null and m_2 is not null and m_3 is null) then 'm_2'
+        when (m_1 is null and m_2 is null and m_3 is not null) then 'm_3'
+        when (m_1 is not null and m_2 is not null and m_3 is null) then 'm_1&m_2'
+        when (m_1 is not null and m_2 is null and m_3 is not null) then 'm_1&m_3'
+        when (m_1 is null and m_2 is not null and m_3 is not null) then 'm_2&m_3'
+        when (m_1 is not null and m_2 is not null and m_3 is not null) then 'm_1&m_2&m_3'
+    end as track_flag
 FROM tracking
-WHERE
-    m_1 is not null
-    and m_2 is not null
-    and m_3 is not null
-    
+-- WHERE
+--     m_1 is not null
+--     and m_2 is not null
+--     and m_3 is not null
+)
+
+SELECT
+    distinct track_flag, 
+    count(distinct mob_s_att_account) as num_accounts
+FROM month_track
+GROUP BY 1
+
