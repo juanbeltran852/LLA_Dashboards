@@ -14,7 +14,7 @@ SELECT  DATE_TRUNC('month',DATE('2023-04-01')) AS input_month
 , cust_mstr_ss_fix as (
 SELECT
     *, 
-    case when date_trunc('month', date(subsrptn_sts_dt)) > date(dt) then cast(date_trunc('month', date(subsrptn_sts_dt)) as varchar) else dt end as dt_fix
+    case when date_trunc('month', date(subsrptn_actvtn_dt)) > date(dt) then cast(date_trunc('month', date(subsrptn_actvtn_dt)) as varchar) else dt end as dt_fix
 FROM "lcpr.stage.dev"."tbl_pstpd_cust_mstr_ss_data"
 )
 
@@ -285,6 +285,10 @@ WHERE
     mob_e_mes_TenureDays < 0
 )
 
+-- SELECT
+--     *
+-- FROM extra_users
+
 -- SELECT *
 -- FROM full_flags
 -- WHERE mob_b_att_active + mob_e_att_active >= 1
@@ -303,6 +307,6 @@ SELECT
 FROM full_flags
 WHERE
     mob_b_att_active + mob_e_att_active >= 1
-    and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
+    -- and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
 GROUP BY 1, 2, 3, 4, 5, 6, 7
 ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
