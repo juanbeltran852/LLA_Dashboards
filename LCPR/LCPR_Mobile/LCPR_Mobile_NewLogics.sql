@@ -136,16 +136,16 @@ FROM customer_status A LEFT JOIN fixed_mrc B
 ON A.mob_s_att_ParentAccount = B.mob_s_att_ParentAccount
 )
 
-, cbacktlife_candidates as (
+, newcust_candidates as (
 SELECT
-   A.mob_s_att_account as cbacktlife_candidate_flag
+   A.mob_s_att_account as newcust_candidate_flag
 FROM customer_status_2 A
 WHERE
-    A.mob_s_att_account in (
+    A.mob_s_att_account not in (
     SELECT 
         subsrptn_id 
     FROM cust_mstr_adj
-    WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '3' month) and ((SELECT input_month FROM parameters) - interval '1' month)
+    WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '6' month) and ((SELECT input_month FROM parameters) - interval '1' month)
         --> Flags utilizadas para clasificar a los usuarios residenciales. Input de Juan C. Vega
         AND cust_sts = 'O'
         AND acct_type_cd = 'I'
@@ -161,14 +161,14 @@ SELECT  *
                 WHEN (mob_e_mes_numRGUS - mob_b_mes_numRGUS) < 0 THEN '3.Downsell'
                 -- WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS > 0 AND DATE_TRUNC('MONTH',mob_e_att_MaxStart) =  mob_s_dim_month) THEN '4.New Customer'
                 -- WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS > 0 AND DATE_TRUNC('MONTH',mob_e_att_MaxStart) <> mob_s_dim_month) THEN '5.Come Back to Life'
-                WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS > 0 AND cbacktlife_candidate_flag is null) THEN '4.New Customer'
-                WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS > 0 AND cbacktlife_candidate_flag is not null) THEN '5.Come Back to Life'
+                WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS > 0 AND newcust_candidate_flag is not null) THEN '4.New Customer'
+                WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS > 0 AND newcust_candidate_flag is null) THEN '5.Come Back to Life'
                 WHEN (mob_b_mes_numRGUS > 0 AND mob_e_mes_numRGUS IS NULL) THEN '6.Null last day'
                 WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS IS NULL) THEN '7.Always null'
                     END AS mob_s_fla_MainMovement
 FROM customer_status_2 A
-LEFT JOIN cbacktlife_candidates B
-    ON A.mob_s_att_account = B.cbacktlife_candidate_flag
+LEFT JOIN newcust_candidates B
+    ON A.mob_s_att_account = B.newcust_candidate_flag
 )
 
 ,spin_movement_flag AS(
@@ -303,4 +303,9 @@ SELECT *
 FROM full_flags
 WHERE 
     mob_b_att_active + mob_e_att_active >= 1
-    -- and mob_s_att_account = 7876004427
+    -- and mob_s_att_account = 7872310633
+
+-- SELECT count(distinct newcust_candidate_flag)
+-- FROM newcust_candidates
+-- WHERE 
+    -- newcust_candidate_flag = 7872310633
