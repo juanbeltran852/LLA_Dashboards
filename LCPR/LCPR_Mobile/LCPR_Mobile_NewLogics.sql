@@ -23,11 +23,11 @@ WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '3' mont
 SELECT  subsrptn_id AS account
         ,cust_id AS parent_account
         ,(date(dt) + interval '1' month - interval '1' day) AS mob_b_dim_date
-        ,DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) AS mob_b_mes_TenureDays
+        ,DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) AS mob_b_mes_TenureDays
         ,date(activation_dt) AS mob_b_att_MaxStart
-        ,CASE   WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early-Tenure'
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid-Tenure'        
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late-Tenure'
+        ,CASE   WHEN DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early-Tenure'
+                WHEN DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid-Tenure'        
+                WHEN DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late-Tenure'
                     ELSE NULL END AS mob_b_fla_Tenure
         ,null AS mob_b_mes_MRC
         ,1 AS mob_b_mes_numRGUS
@@ -44,11 +44,11 @@ WHERE date(dt) = (SELECT input_month FROM parameters) - interval '1' month
 SELECT  subsrptn_id as account
         ,cust_id AS parent_account
         ,(date(dt) + interval '1' month - interval '1' day) AS mob_e_dim_date
-        ,DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) AS mob_e_mes_TenureDays
+        ,DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) AS mob_e_mes_TenureDays
         ,date(activation_dt) AS mob_e_att_MaxStart
-        ,CASE   WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early-Tenure'
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid-Tenure'        
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late-Tenure'
+        ,CASE   WHEN DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early-Tenure'
+                WHEN DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid-Tenure'        
+                WHEN DATE_DIFF('day',date(activation_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late-Tenure'
                     ELSE NULL END AS mob_e_fla_Tenure
         ,null AS mob_e_mes_MRC
         ,1 AS mob_e_mes_numRGUS
@@ -304,7 +304,7 @@ SELECT *
 FROM full_flags
 WHERE 
     mob_b_att_active + mob_e_att_active >= 1
-    -- and mob_s_att_account = 7872310633
+--    -- and mob_s_att_account = 7872310633
 
 -- SELECT
 --     mob_s_dim_month, 
@@ -324,7 +324,8 @@ WHERE
 -- GROUP BY 1, 2, 3, 4, 5, 6, 7
 -- ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
 
--- SELECT count(distinct newcust_candidate_flag)
--- FROM newcust_candidates
--- WHERE 
+-- SELECT count(distinct mob_s_att_account)
+-- FROM full_flags
+-- WHERE
+    -- mob_e_mes_TenureDays < 0
     -- newcust_candidate_flag = 7872310633
