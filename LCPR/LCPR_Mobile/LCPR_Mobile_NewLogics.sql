@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------------------
 -------------------------- LCPR POSTPAID TABLE - V2 -------------------------------------
 -----------------------------------------------------------------------------------------
---CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_postpaid_table_feb_apr14" AS
+-- CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_mob_mar2023_adj" AS
 
 WITH 
 
@@ -109,6 +109,7 @@ FROM customer_status A
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) B
 ON A.mob_s_att_ParentAccount = B.parent
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
+-- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) C
 ON A.mob_s_att_ParentAccount = C.parent
 GROUP BY 1,2,3
 )
@@ -304,6 +305,24 @@ FROM full_flags
 WHERE 
     mob_b_att_active + mob_e_att_active >= 1
     -- and mob_s_att_account = 7872310633
+
+-- SELECT
+--     mob_s_dim_month, 
+--     mob_b_att_active, 
+--     mob_e_att_active, 
+--     mob_s_fla_MainMovement, 
+--     mob_s_fla_SpinMovement, 
+--     mob_s_fla_ChurnFlag, 
+--     mob_s_fla_ChurnType, 
+--     count(distinct mob_s_att_account) as accounts, 
+--     count(distinct case when mob_b_att_active = 1 then mob_s_att_account else null end) as EOM_RGUs, 
+--     count(distinct case when mob_e_att_active = 1 then mob_s_att_account else null end) as BOM_RGUs
+-- FROM full_flags
+-- WHERE
+--     mob_b_att_active + mob_e_att_active >= 1
+--     -- and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
+-- GROUP BY 1, 2, 3, 4, 5, 6, 7
+-- ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
 
 -- SELECT count(distinct newcust_candidate_flag)
 -- FROM newcust_candidates
