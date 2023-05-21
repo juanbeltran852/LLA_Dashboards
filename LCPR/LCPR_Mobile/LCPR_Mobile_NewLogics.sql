@@ -16,7 +16,7 @@ SELECT
     *, 
     first_value(date(subsrptn_actvtn_dt)) over (partition by subsrptn_id order by dt asc) as activation_dt
 FROM "lcpr.stage.dev"."tbl_pstpd_cust_mstr_ss_data"
-WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '3' month) and (SELECT input_month FROM parameters)
+-- WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '3' month) and (SELECT input_month FROM parameters)
 )
 
 ,BOM_active_base AS (
