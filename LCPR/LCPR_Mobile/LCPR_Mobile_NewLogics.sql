@@ -16,7 +16,7 @@ SELECT
     *, 
     first_value(date(subsrptn_actvtn_dt)) over (partition by subsrptn_id order by dt asc) as activation_dt
 FROM "lcpr.stage.dev"."tbl_pstpd_cust_mstr_ss_data"
--- WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '3' month) and (SELECT input_month FROM parameters)
+WHERE date(dt) between ((SELECT input_month FROM parameters) - interval '3' month) and (SELECT input_month FROM parameters)
 )
 
 ,BOM_active_base AS (
@@ -108,7 +108,7 @@ SELECT  A.mob_s_att_ParentAccount
 FROM customer_status A
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) B
 ON A.mob_s_att_ParentAccount = B.parent
-LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
+-- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
 -- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) C
 ON A.mob_s_att_ParentAccount = C.parent
 GROUP BY 1,2,3
@@ -300,11 +300,19 @@ SELECT  mob_s_dim_month
 FROM mobile_table_churn_flag
 )
 
+, extra_users as (
+SELECT
+    mob_s_att_account
+FROM full_flags
+WHERE mob_e_mes_TenureDays < 0
+    
+)
+
 SELECT *
 FROM full_flags
 WHERE 
     mob_b_att_active + mob_e_att_active >= 1
---    -- and mob_s_att_account = 7872310633
+--     -- and mob_s_att_account = 7876004427
 
 -- SELECT
 --     mob_s_dim_month, 
@@ -320,12 +328,7 @@ WHERE
 -- FROM full_flags
 -- WHERE
 --     mob_b_att_active + mob_e_att_active >= 1
---     -- and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
+--     and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
 -- GROUP BY 1, 2, 3, 4, 5, 6, 7
 -- ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
 
--- SELECT count(distinct mob_s_att_account)
--- FROM full_flags
--- WHERE
-    -- mob_e_mes_TenureDays < 0
-    -- newcust_candidate_flag = 7872310633
