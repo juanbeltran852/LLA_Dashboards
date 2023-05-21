@@ -108,7 +108,7 @@ SELECT  A.mob_s_att_ParentAccount
 FROM customer_status A
 LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) B
 ON A.mob_s_att_ParentAccount = B.parent
--- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
+LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
 -- LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) C
 ON A.mob_s_att_ParentAccount = C.parent
 GROUP BY 1,2,3
@@ -328,7 +328,7 @@ WHERE
 -- FROM full_flags
 -- WHERE
 --     mob_b_att_active + mob_e_att_active >= 1
---     and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
+--     -- and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
 -- GROUP BY 1, 2, 3, 4, 5, 6, 7
 -- ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
 
