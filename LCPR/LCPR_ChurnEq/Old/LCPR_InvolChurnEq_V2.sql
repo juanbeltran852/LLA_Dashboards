@@ -6,7 +6,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-01-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- FMC --- --- --- --- --- --- --- --- --- --- --- ---
