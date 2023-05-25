@@ -287,9 +287,13 @@ WHERE DATE(dt) = (SELECT input_month FROM parameters)
     --                         AND rgn_nm <> 'VI'
     --                         --AND subsrptn_sts = 'A'
     --                     )
-    -- and lower(acct_sts_rsn_desc) not like '%contract%accepted%'
-    -- and lower(acct_sts_rsn_desc) not like '%portin%'
-    -- and lower(acct_sts_rsn_desc) not like '%ctn%activation%'
+    and lower(acct_sts_rsn_desc) not like '%contract%accepted%'
+    and lower(acct_sts_rsn_desc) not like '%portin%'
+    and lower(acct_sts_rsn_desc) not like '%ctn%activation%'
+    and lower(acct_sts_rsn_desc) not like '%per%cust%req%'
+    and lower(acct_sts_rsn_desc) not like '%reduced%rate%suspend%'
+    and lower(acct_sts_rsn_desc) not like '%""%'
+    and lower(lst_susp_rsn_desc) not like '%""%'
 )
 
 ,all_churners AS (
