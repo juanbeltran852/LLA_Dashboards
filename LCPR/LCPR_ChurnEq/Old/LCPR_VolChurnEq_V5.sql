@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-03 -01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- FMC - Total Voluntary Churn --- --- --- --- --- --- --- --- ---
@@ -115,4 +115,3 @@ SELECT
     -- count(distinct case when ret_account_id is not null then fix_b_fla_vo else null end) as cc_bb, 
     -- count(distinct case when retained_flag is not null then fix_e_fla_bb else null end) as ret_bb
 FROM vol_churn_eq
-
