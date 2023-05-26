@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2022-12-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-03 -01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- FMC - Total Voluntary Churn --- --- --- --- --- --- --- --- ---
@@ -55,7 +55,7 @@ SELECT
 FROM "lcpr.stage.prod"."so_hdr_lcpr" B
 WHERE 
     -- date_trunc('month', date(B.completed_date)) = (SELECT input_month FROM parameters)
-    date_trunc('month', date(B.order_start_date)) = (SELECT input_month FROM parameters)
+    date_trunc('month', date(B.completed_date)) = (SELECT input_month FROM parameters)
     and (B.order_type = 'V_DISCO' or lower(B.order_type) like '%dwn%') --- Downgrades are a way in which RGUs churn voluntarily
     and B.account_type = 'RES'
     and B.order_status = 'COMPLETE'
@@ -116,14 +116,3 @@ SELECT
     -- count(distinct case when retained_flag is not null then fix_e_fla_bb else null end) as ret_bb
 FROM vol_churn_eq
 
-
-
-
--- SELECT
---     *
--- FROM "lla_cco_lcpr_ana_prod"."lcpr_fmc_churn_dev"
--- WHERE
---     fmc_s_dim_month = (SELECT input_month FROM parameters)
---     and fmc_s_fla_churntype = 'Voluntary Churner'
---     and fmc_s_fla_churnflag in ('Fixed Churner', 'Churner')
--- LIMIT 10
