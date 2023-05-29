@@ -19,7 +19,7 @@ SELECT
     case when fix_e_fla_bb is not null then 1 else 0 end as bb_eom, 
     case when fix_e_fla_tv is not null then 1 else 0 end as tv_eom, 
     case when fix_e_fla_vo is not null then 1 else 0 end as vo_eom
-FROM "lla_cco_int_ana_dev"."cwp_fmc_churn_dev"
+FROM "lla_cco_lcpr_ana_prod"."lcpr_fmc_churn_dev"
 WHERE 
     fmc_s_dim_month = (SELECT input_month FROM parameters) 
     and fmc_b_att_active = 1
@@ -29,7 +29,7 @@ WHERE
 , total_vol_churn as (
 SELECT
     cast(fix_s_att_account as varchar) as vol_churn_id,
-    fmc_s_fla_churntype as churntype, 
+    fmc_s_fla_churntype as churntype
 FROM "lla_cco_lcpr_ana_prod"."lcpr_fmc_churn_dev"
 WHERE
     fmc_s_dim_month = (SELECT input_month FROM parameters)
@@ -116,10 +116,10 @@ FULL OUTER JOIN all_attempts C
 
 , rejoin_to_fmc as (
 SELECT
-    *
+    distinct *
 FROM fmc_table A
 LEFT JOIN vol_churn_eq B
-    ON A.fix_s_att_account = B.vol_dx_flag
+    ON cast(A.fix_s_att_account as varchar) = cast(B.vol_dx_flag as varchar)
 )
 
 , final_results as (
@@ -136,7 +136,7 @@ SELECT
     fix_b_fla_tenure, 
     fix_e_fla_tenure, 
     fix_s_fla_churntype, 
-    case when ret_account_id is not null then 1 else 0 end as rcoe --- Dummy for retained customers
+    case when ret_account_id is not null then 1 else 0 end as rcoe, --- Dummy for retained customers
     case when fix_b_mes_numrgus is null then 0 else fix_b_mes_numrgus end as b_numrgus, 
     case when fix_e_mes_numrgus is null then 0 else fix_e_mes_numrgus end as e_numrgus, 
     case 
@@ -147,8 +147,8 @@ SELECT
         when not_retained_flag is not null and vol_dx_flag is not null then '1. RCOE Dx'
         when not_retained_flag is not null and vol_dx_flag is null then '2. "Baja No Cursada'
     else null end as not_ret_flag_users, 
-    --- ret_flag_rgus,
-    --- not_ret_flag_rgus,
+    case when retained_flag is not null then (bb_bom + tv_bom + vo_bom) else null end as ret_flag_rgus,
+    case when not_retained_flag is not null then (bb_bom + tv_bom + vo_bom) else null end as not_ret_flag_rgus,
     bb_bom, 
     tv_bom, 
     vo_bom, 
@@ -163,35 +163,16 @@ SELECT
     count(distinct case when not_retained_flag is not null and vol_dx_flag is null then ret_account_id else null end) as bajasnocursadas, 
     count(distinct retained_flag) as ret_users
 FROM rejoin_to_fmc
-GROUP BY 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
-ORDER BY 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
+ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
 )
-
--- ,FinalVolChurnTable as (select distinct month
--- ,B_Final_TechFlag, B_FMCSegment, B_FMCType,E_Final_TechFlag, E_FMCSegment, E_FMCType,b_final_tenure,e_final_tenure,B_FixedTenure,E_FixedTenure,fixedchurntype
--- ,rcoe
--- ,b_numrgus,
--- -- e_numrgus
--- case when e_numrgus is null then 0 else e_numrgus end as e_numrgus
--- ,Ret_Flag_Users,Not_Retained_Flag_Users
-,Ret_Flag_RGUs,Not_Retained_Flag_RGUs
--- ,bb_bom,tv_bom,vo_bom,bb_eom,tv_eom,vo_eom
-
--- ,count(distinct dx_attempt) as all_attempts,count(distinct Dx_Attempt_RCOE) as rcoe_attempts,
--- count(distinct all_real_dx) as all_real_dx,count(distinct rcoe_real_dx) as rcoe_real_dx,
--- count(distinct Other_Vol_Dx) as Other_Vol_Dx,count(distinct BajasNoCursadas) as BajasNoCursadas,
--- count(distinct retained) as ret_users
-
--- from final_flags 
--- group by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
--- order by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
--- )
--- select * from FinalVolChurnTable order by 1 desc 
-
 
 SELECT * FROM final_results ORDER BY 1 desc
 
 
+--- --- --- ### ### ### Quick checks ### ### ### --- --- ---
+
+--- --- --- Accounts
 -- SELECT 
 --     count(distinct dx_no_cc) + count(distinct ret_account_id) as all_attempts, 
 --     count(distinct ret_account_id) as attempts_cc, 
@@ -209,4 +190,14 @@ SELECT * FROM final_results ORDER BY 1 desc
 --     -- count(distinct case when retained_flag is not null then fix_e_fla_bb else null end) as ret_bb
 -- FROM vol_churn_eq
 
+
+--- --- --- RGUs
+-- SELECT 
+--     sum(case when dx_no_cc is not null or ret_account_id is not null then (bb_bom + tv_bom + vo_bom) else null end) as all_attempts_rgus, 
+--     sum(case when ret_account_id is not null then (bb_bom + tv_bom + vo_bom) else null end) as attempts_cc_rgus, 
+--     sum(case when retained_flag is not null then (bb_bom + tv_bom + vo_bom) else null end) as retained_rgus, 
+--     sum(case when not_retained_flag is not null and vol_dx_flag is not null then (bb_bom + tv_bom + vo_bom) else null end) as dx_no_ret_rgus, 
+--     sum(case when not_retained_flag is not null and vol_dx_flag is null then (bb_bom + tv_bom + vo_bom) else null end) as no_dx_no_ret_rgus, 
+--     sum(case when dx_no_cc is not null then (bb_bom + tv_bom + vo_bom) else null end) as dx_no_cc_rgus
+-- FROM rejoin_to_fmc
 
