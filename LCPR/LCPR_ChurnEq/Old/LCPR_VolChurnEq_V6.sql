@@ -122,7 +122,7 @@ LEFT JOIN vol_churn_eq B
     ON A.fix_s_att_account = B.vol_dx_flag
 )
 
-, final_result as (
+, final_results as (
 SELECT
     distinct fmc_s_dim_month, 
     fmc_b_fla_tech, 
@@ -155,13 +155,13 @@ SELECT
     bb_eom, 
     tv_eom, 
     vo_eom, 
-    count(distinct ) as all_attempts, 
-    count(distinct ) as rcoe_attempts, 
-    count(distinct ) as all_real_dx, 
-    count(distinct ) as rcoe_real_dx, 
-    count(distinct ) as other_vol_dx, 
-    count(distinct ) as bajasnocursadas, 
-    count(distinct ) as ret_users
+    count(distinct dx_no_cc) + count(distinct ret_account_id) as all_attempts, 
+    count(distinct ret_account_id) as rcoe_attempts, 
+    count(distinct vol_dx_flag) as all_real_dx, 
+    count(distinct case when not_retained_flag is not null and vol_dx_flag is not null then ret_account_id else null end) as rcoe_real_dx, 
+    count(distinct dx_no_cc) as other_vol_dx, 
+    count(distinct case when not_retained_flag is not null and vol_dx_flag is null then ret_account_id else null end) as bajasnocursadas, 
+    count(distinct retained_flag) as ret_users
 FROM rejoin_to_fmc
 GROUP BY 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
 ORDER BY 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25
@@ -175,12 +175,12 @@ ORDER BY 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
 -- case when e_numrgus is null then 0 else e_numrgus end as e_numrgus
 -- ,Ret_Flag_Users,Not_Retained_Flag_Users
 ,Ret_Flag_RGUs,Not_Retained_Flag_RGUs
-,bb_bom,tv_bom,vo_bom,bb_eom,tv_eom,vo_eom
+-- ,bb_bom,tv_bom,vo_bom,bb_eom,tv_eom,vo_eom
 
-,count(distinct dx_attempt) as all_attempts,count(distinct Dx_Attempt_RCOE) as rcoe_attempts,
-count(distinct all_real_dx) as all_real_dx,count(distinct rcoe_real_dx) as rcoe_real_dx,
-count(distinct Other_Vol_Dx) as Other_Vol_Dx,count(distinct BajasNoCursadas) as BajasNoCursadas,
-count(distinct retained) as ret_users
+-- ,count(distinct dx_attempt) as all_attempts,count(distinct Dx_Attempt_RCOE) as rcoe_attempts,
+-- count(distinct all_real_dx) as all_real_dx,count(distinct rcoe_real_dx) as rcoe_real_dx,
+-- count(distinct Other_Vol_Dx) as Other_Vol_Dx,count(distinct BajasNoCursadas) as BajasNoCursadas,
+-- count(distinct retained) as ret_users
 
 -- from final_flags 
 -- group by 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
@@ -192,21 +192,21 @@ count(distinct retained) as ret_users
 SELECT * FROM final_results ORDER BY 1 desc
 
 
-SELECT 
-    count(distinct dx_no_cc) + count(distinct ret_account_id) as all_attempts, 
-    count(distinct ret_account_id) as attempts_cc, 
-    count(distinct dx_no_cc) as dx_no_cc,
-    count(distinct retained_flag) as retained_customers, 
-    cast(count(distinct retained_flag) as double)/cast(count(distinct ret_account_id) + count(distinct dx_no_cc) as double) as ret_rate_all, 
-    cast(count(distinct retained_flag) as double)/cast(count(distinct ret_account_id) as double) as ret_rate_cc,
-    count(distinct not_retained_flag) as no_ret,
-    count(distinct case when not_retained_flag is not null and vol_dx_flag is not null then ret_account_id else null end) as dx_no_ret, 
-    count(distinct case when not_retained_flag is not null and vol_dx_flag is null then ret_account_id else null end) as no_dx_no_ret,
-    count(distinct vol_churn_id) as total_voluntary_churn
+-- SELECT 
+--     count(distinct dx_no_cc) + count(distinct ret_account_id) as all_attempts, 
+--     count(distinct ret_account_id) as attempts_cc, 
+--     count(distinct dx_no_cc) as dx_no_cc,
+--     count(distinct retained_flag) as retained_customers, 
+--     cast(count(distinct retained_flag) as double)/cast(count(distinct ret_account_id) + count(distinct dx_no_cc) as double) as ret_rate_all, 
+--     cast(count(distinct retained_flag) as double)/cast(count(distinct ret_account_id) as double) as ret_rate_cc,
+--     count(distinct not_retained_flag) as no_ret,
+--     count(distinct case when not_retained_flag is not null and vol_dx_flag is not null then ret_account_id else null end) as dx_no_ret, 
+--     count(distinct case when not_retained_flag is not null and vol_dx_flag is null then ret_account_id else null end) as no_dx_no_ret,
+--     count(distinct vol_churn_id) as total_voluntary_churn
     
-    -- count(distinct case when dx_no_cc is not null or ret_account_id is not null then fix_b_fla_vo else null end) as all_bb,
-    -- count(distinct case when ret_account_id is not null then fix_b_fla_vo else null end) as cc_bb, 
-    -- count(distinct case when retained_flag is not null then fix_e_fla_bb else null end) as ret_bb
-FROM vol_churn_eq
+--     -- count(distinct case when dx_no_cc is not null or ret_account_id is not null then fix_b_fla_vo else null end) as all_bb,
+--     -- count(distinct case when ret_account_id is not null then fix_b_fla_vo else null end) as cc_bb, 
+--     -- count(distinct case when retained_flag is not null then fix_e_fla_bb else null end) as ret_bb
+-- FROM vol_churn_eq
 
 
