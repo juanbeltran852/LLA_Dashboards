@@ -12,7 +12,7 @@ parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 
 , dna_rgus_pre as (
 SELECT
-    cast(sub_acct_no_sbb as varchar) as dna_id, 
+    distinct cast(sub_acct_no_sbb as varchar) as dna_id, 
     first_value(hsd) over (partition by sub_acct_no_sbb order by dt asc) as bb_bom, 
     first_value(video) over (partition by sub_acct_no_sbb order by dt asc) as tv_bom, 
     first_value(voice) over (partition by sub_acct_no_sbb order by dt asc) as vo_bom,
@@ -84,8 +84,8 @@ SELECT
     cast(B.account_id as varchar) as vol_dx_flag
 FROM "lcpr.stage.prod"."so_hdr_lcpr" B
 WHERE 
+    date_trunc('month', date(B.order_start_date)) = (SELECT input_month FROM parameters)
     -- date_trunc('month', date(B.completed_date)) = (SELECT input_month FROM parameters)
-    date_trunc('month', date(B.completed_date)) = (SELECT input_month FROM parameters)
     and (B.order_type = 'V_DISCO' or lower(B.order_type) like '%dwn%') --- Downgrades are a way in which RGUs churn voluntarily
     and B.account_type = 'RES'
     and B.order_status = 'COMPLETE'
@@ -138,13 +138,29 @@ FULL OUTER JOIN all_attempts C
 SELECT
     *
 FROM fmc_table A
-FULL OUTER JOIN vol_churn_eq B
+RIGHT JOIN vol_churn_eq B
     ON cast(A.fix_s_att_account as varchar) = cast(B.vol_dx_flag as varchar)
 )
 
 , join_to_dna as (
 SELECT
-    *
+    A.*, 
+    case 
+        when fix_s_fla_mainmovement = '3.Downsell' then rgus_bom - rgus_eom
+        when fix_s_fla_mainmovement = '6.Null last day' then rgus_bom
+    else rgus_bom end as churned_rgus, 
+    case 
+        when fix_s_fla_mainmovement = '3.Downsell' then bb_bom - bb_eom
+        when fix_s_fla_mainmovement = '6.Null last day' then bb_bom
+    else bb_bom end as churned_bb, 
+    case 
+        when fix_s_fla_mainmovement = '3.Downsell' then tv_bom - tv_eom
+        when fix_s_fla_mainmovement = '6.Null last day' then tv_bom
+    else tv_bom end as churned_tv,
+    case 
+        when fix_s_fla_mainmovement = '3.Downsell' then vo_bom - vo_eom
+        when fix_s_fla_mainmovement = '6.Null last day' then vo_bom
+    else vo_bom end as churned_vo 
 FROM rejoin_to_fmc A
 LEFT JOIN dna_rgus B
     ON A.churn_eq_id = B.dna_id
@@ -171,31 +187,66 @@ SELECT
     case when not_retained_flag is not null and vol_dx_flag is null then 1 else 0 end as not_dx_not_retained, 
     case when dx_no_cc is not null then 1 else 0 end as dx_no_cc,
     count(distinct churn_eq_id) as accounts, 
-    sum(rgus_bom) as rgus_bom, 
-    sum(rgus_eom) as rgus_eom, 
-    sum(bb_bom) as bb_bom,
-    sum(tv_bom) as tv_bom,
-    sum(vo_bom) as vo_bom,
-    sum(bb_eom) as bb_eom,
-    sum(tv_eom) as tv_eom,
-    sum(vo_eom) as vo_eom
+    sum(case when churn_eq_id is not null then churned_rgus else null end) as churned_rgus,
+    sum(case when churn_eq_id is not null then churned_bb else null end) as churned_bb,
+    sum(case when churn_eq_id is not null then churned_tv else null end) as churned_tv,
+    sum(case when churn_eq_id is not null then churned_vo else null end) as churned_vo
 FROM join_to_dna
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
 ORDER BY 13, 14, 15, 16, 17, 18
 )
 
--- SELECT
---     *
--- FROM final_table
+SELECT
+    *
+FROM final_table
 
 
 --- --- --- ### ### ### Quick check
 
-SELECT
-    sum(case when all_attempts = 1 then accounts else null end) as all_attempts, 
-    sum(case when cc_attempts = 1 then accounts else null end) as cc_attempts, 
-    sum(case when retained = 1 then accounts else null end) as retained, 
-    sum(case when dx_not_retained = 1 then accounts else null end) as dx_not_retained, 
-    sum(case when not_dx_not_retained = 1 then accounts else null end) as not_dx_not_retained, 
-    sum(case when dx_no_cc = 1 then accounts else null end) as dx_no_cc
-FROM final_table
+
+--- --- --- Accounts
+-- SELECT
+--     sum(case when all_attempts = 1 then accounts else null end) as all_attempts, 
+--     sum(case when cc_attempts = 1 then accounts else null end) as cc_attempts, 
+--     sum(case when retained = 1 then accounts else null end) as retained, 
+--     sum(case when dx_not_retained = 1 then accounts else null end) as dx_not_retained, 
+--     sum(case when not_dx_not_retained = 1 then accounts else null end) as not_dx_not_retained, 
+--     sum(case when dx_no_cc = 1 then accounts else null end) as dx_no_cc
+-- FROM final_table
+
+--- --- --- RGUs
+-- SELECT
+--     sum(case when all_attempts = 1 then churned_rgus else null end) as all_attempts_rgus,
+--     sum(case when cc_attempts = 1 then churned_rgus else null end) as cc_attempts, 
+--     sum(case when retained = 1 then churned_rgus else null end) as retained, 
+--     sum(case when dx_not_retained = 1 then churned_rgus else null end) as dx_not_retained, 
+--     sum(case when not_dx_not_retained = 1 then churned_rgus else null end) as not_dx_not_retained, 
+--     sum(case when dx_no_cc = 1 then churned_rgus else null end) as dx_no_cc
+-- FROM final_table
+
+-- SELECT
+--     sum(case when all_attempts = 1 then churned_bb else null end) as all_attempts_bb,
+--     sum(case when cc_attempts = 1 then churned_bb else null end) as cc_attempts_bb, 
+--     sum(case when retained = 1 then churned_bb else null end) as retained_bb, 
+--     sum(case when dx_not_retained = 1 then churned_bb else null end) as dx_not_retained_bb, 
+--     sum(case when not_dx_not_retained = 1 then churned_bb else null end) as not_dx_not_retained_bb, 
+--     sum(case when dx_no_cc = 1 then churned_bb else null end) as dx_no_cc_bb
+-- FROM final_table
+
+-- SELECT
+--     sum(case when all_attempts = 1 then churned_tv else null end) as all_attempts_tv,
+--     sum(case when cc_attempts = 1 then churned_tv else null end) as cc_attempts_tv, 
+--     sum(case when retained = 1 then churned_tv else null end) as retained_tv, 
+--     sum(case when dx_not_retained = 1 then churned_tv else null end) as dx_not_retained_tv, 
+--     sum(case when not_dx_not_retained = 1 then churned_tv else null end) as not_dx_not_retained_tv, 
+--     sum(case when dx_no_cc = 1 then churned_tv else null end) as dx_no_cc_tv
+-- FROM final_table
+
+-- SELECT
+--     sum(case when all_attempts = 1 then churned_vo else null end) as all_attempts_vo,
+--     sum(case when cc_attempts = 1 then churned_vo else null end) as cc_attempts_vo, 
+--     sum(case when retained = 1 then churned_vo else null end) as retained_vo, 
+--     sum(case when dx_not_retained = 1 then churned_vo else null end) as dx_not_retained_vo, 
+--     sum(case when not_dx_not_retained = 1 then churned_vo else null end) as not_dx_not_retained_vo, 
+--     sum(case when dx_no_cc = 1 then churned_vo else null end) as dx_no_cc_vo
+-- FROM final_table
