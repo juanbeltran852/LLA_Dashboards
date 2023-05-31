@@ -1,25 +1,25 @@
 -----------------------------------------------------------------------------------------
 ----------------------------- LCPR FMC TABLE - V2 ---------------------------------------
 -----------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_fmc_feb2023_final" AS
+CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_fmc_apr2023_notduplicates" AS
 
 WITH
 
 parameters AS (
 --> Seleccionar el mes en que se desea realizar la corrida
-SELECT  DATE_TRUNC('month',DATE('2023-02-01')) AS input_month
+SELECT  DATE_TRUNC('month',DATE('2023-04-01')) AS input_month
         ,85 as overdue_days
 )
 
 ,fixed_table AS (
 SELECT *
-FROM "db_stage_dev"."lcpr_fixed_table_feb_apr14"
+FROM "db_stage_dev"."lcpr_fixed_apr2023"
 WHERE fix_s_dim_month = (SELECT input_month FROM parameters)
 )
 
 ,mobile_table AS (
 SELECT *
-FROM "db_stage_dev"."lcpr_mob_feb2023_adj"
+FROM "db_stage_dev"."lcpr_mob_apr2023"
 WHERE mob_s_dim_month = (SELECT input_month FROM parameters)
 )
 
@@ -140,8 +140,7 @@ SELECT  IF(fix_s_dim_month IS NOT NULL,fix_s_dim_month,mob_s_dim_month) AS fmc_s
         ,mob_s_fla_churnflag
         ,mob_s_fla_churntype
         ,mob_s_fla_Rejoiner
-        -- ,IF(mob_s_att_account IS NOT NULL /*AND mob_b_att_active = 1*/,row_number() IGNORE NULLS OVER (PARTITION BY mob_s_att_account ORDER BY fix_s_att_account desc),1) AS mob_s_att_duplicates
-        ,row_number() OVER (PARTITION BY mob_s_att_account ORDER BY fix_s_att_account desc) AS mob_s_att_duplicates
+        ,IF(mob_s_att_account IS NOT NULL /*AND mob_b_att_active = 1*/,row_number() OVER (PARTITION BY mob_s_att_account ORDER BY fix_s_att_account desc),1) AS mob_s_att_duplicates
         ,CASE   WHEN (fix_b_fla_tenure IS NOT NULL AND mob_b_fla_tenure IS NULL) THEN fix_b_fla_tenure
                 WHEN (fix_b_fla_tenure = mob_b_fla_tenure) THEN fix_b_fla_tenure
                 WHEN (mob_b_fla_tenure IS NOT NULL AND fix_b_fla_tenure IS NULL) THEN mob_b_fla_tenure
@@ -326,7 +325,10 @@ SELECT  fmc_s_dim_month
 FROM FMC_base_adj
 )
 
-SELECT  *
+SELECT  
+    *
+    -- count(distinct fix_s_att_account)
 FROM final_flags
 WHERE fmc_b_att_active + fmc_e_att_active >= 1
+    -- and fmc_e_fla_fmc = 'Fixed Only'
     and mob_s_att_duplicates = 1
