@@ -1,13 +1,13 @@
 -----------------------------------------------------------------------------------------
 -------------------------- LCPR POSTPAID TABLE - V1 -------------------------------------
 -----------------------------------------------------------------------------------------
---CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_postpaid_table_feb_apr14" AS
+--CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_postpaid_table_jan_mar15" AS
 
 WITH 
 
 parameters AS (
 --> Seleccionar el mes en que se desea realizar la corrida
-SELECT  DATE_TRUNC('month',DATE('2023-02-01')) AS input_month
+SELECT  DATE_TRUNC('month',DATE('2023-01-01')) AS input_month
         ,85 as overdue_days
 )
 
@@ -17,11 +17,11 @@ SELECT  subsrptn_id AS account
         ,(date(dt) + interval '1' month - interval '1' day) AS mob_b_dim_date
         ,DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) AS mob_b_mes_TenureDays
         ,date(subsrptn_actvtn_dt) AS mob_b_att_MaxStart
-        ,CASE   WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early-Tenure'
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid-Tenure'        
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late-Tenure'
+        ,CASE   WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early Tenure'
+                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid Tenure'        
+                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late Tenure'
                     ELSE NULL END AS mob_b_fla_Tenure
-        ,null AS mob_b_mes_MRC
+        ,indiv_inslm_amt AS mob_b_mes_MRC
         ,1 AS mob_b_mes_numRGUS
 FROM "lcpr.stage.dev"."tbl_pstpd_cust_mstr_ss_data"
 WHERE date(dt) = (SELECT input_month FROM parameters) - interval '1' month
@@ -38,11 +38,11 @@ SELECT  subsrptn_id as account
         ,(date(dt) + interval '1' month - interval '1' day) AS mob_e_dim_date
         ,DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) AS mob_e_mes_TenureDays
         ,date(subsrptn_actvtn_dt) AS mob_e_att_MaxStart
-        ,CASE   WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early-Tenure'
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid-Tenure'        
-                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late-Tenure'
+        ,CASE   WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 180 THEN 'Early Tenure'
+                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) <= 360 THEN 'Mid Tenure'        
+                WHEN DATE_DIFF('day',date(subsrptn_actvtn_dt),(date(dt) + interval '1' month - interval '1' day)) >  360 THEN 'Late Tenure'
                     ELSE NULL END AS mob_e_fla_Tenure
-        ,null AS mob_e_mes_MRC
+        ,indiv_inslm_amt AS mob_e_mes_MRC
         ,1 AS mob_e_mes_numRGUS
 FROM "lcpr.stage.dev"."tbl_pstpd_cust_mstr_ss_data"
 WHERE date(dt) = (SELECT input_month FROM parameters)
@@ -80,54 +80,6 @@ FROM BOM_active_base A FULL OUTER JOIN EOM_active_base B
     ON A.account = B.account
 )
 
-,MRC_ext_calculus AS (
-SELECT  date(dt) AS dt
-        ,acct_nbr AS parent
-        ,sum("mrc/account") AS MRC_per_parent
-FROM "lcpr.stage.dev"."lcpr_mob_postpaid_mrc"
-WHERE DATE(dt) BETWEEN (SELECT input_month FROM parameters) - interval '1' month AND (SELECT input_month FROM parameters)
-GROUP BY 1,2
-)
-
-,fixed_mrc AS (
-SELECT  A.mob_s_att_ParentAccount
-        ,B.MRC_per_parent AS BOM_MRC
-        ,C.MRC_per_parent AS EOM_MRC
-        ,sum(A.mob_b_att_active) as bom_active
-        ,sum(A.mob_e_att_active) as eom_active
-        ,B.MRC_per_parent/sum(A.mob_b_att_active) as BOM_MRC_per_subs
-        ,C.MRC_per_parent/sum(A.mob_e_att_active) as EOM_MRC_per_subs
-FROM customer_status A
-LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters) - interval '1' month) B
-ON A.mob_s_att_ParentAccount = B.parent
-LEFT JOIN (SELECT * FROM MRC_ext_calculus WHERE dt = (SELECT input_month FROM parameters)) C
-ON A.mob_s_att_ParentAccount = C.parent
-GROUP BY 1,2,3
-)
-
-,customer_status_2 AS (
-SELECT  A.mob_s_dim_month
-        ,A.mob_s_att_account
-        ,A.mob_s_att_ParentAccount
-        ,A.mob_s_att_MobileType
-        ,A.mob_b_att_active
-        ,A.mob_e_att_active
-        ,A.mob_b_dim_date
-        ,A.mob_b_mes_TenureDays
-        ,A.mob_b_att_MaxStart
-        ,A.mob_b_fla_Tenure
-        ,IF(A.mob_s_att_ParentAccount = B.mob_s_att_ParentAccount,B.BOM_MRC_per_subs,A.mob_b_mes_MRC) AS mob_b_mes_MRC
-        ,A.mob_b_mes_numRGUS
-        ,A.mob_e_dim_date
-        ,A.mob_e_mes_TenureDays
-        ,A.mob_e_att_MaxStart
-        ,A.mob_e_fla_Tenure
-        ,IF(A.mob_s_att_ParentAccount = B.mob_s_att_ParentAccount,B.EOM_MRC_per_subs,A.mob_e_mes_MRC) AS mob_e_mes_MRC
-        ,A.mob_e_mes_numRGUS
-FROM customer_status A LEFT JOIN fixed_mrc B 
-ON A.mob_s_att_ParentAccount = B.mob_s_att_ParentAccount
-)
-
 ,main_movement_flag AS(
 SELECT  *
         ,CASE   WHEN (mob_e_mes_numRGUS - mob_b_mes_numRGUS) = 0 THEN '1.SameRGUs' 
@@ -138,15 +90,15 @@ SELECT  *
                 WHEN (mob_b_mes_numRGUS > 0 AND mob_e_mes_numRGUS IS NULL) THEN '6.Null last day'
                 WHEN (mob_b_mes_numRGUS IS NULL AND mob_e_mes_numRGUS IS NULL) THEN '7.Always null'
                     END AS mob_s_fla_MainMovement
-FROM customer_status_2
+FROM customer_status
 )
 
 ,spin_movement_flag AS(
 SELECT  *
-        ,ROUND((IF(mob_e_mes_MRC IS NULL,0,mob_e_mes_MRC) - IF(mob_b_mes_MRC IS NULL,0,mob_b_mes_MRC)),0) AS mob_s_mes_MRCdiff
-        ,CASE   WHEN mob_s_fla_MainMovement = '1.SameRGUs' AND (IF(mob_e_mes_MRC IS NULL,0,mob_e_mes_MRC) - IF(mob_b_mes_MRC IS NULL,0,mob_b_mes_MRC)) = 0 THEN '1.Same'
-                WHEN mob_s_fla_MainMovement = '1.SameRGUs' AND (IF(mob_e_mes_MRC IS NULL,0,mob_e_mes_MRC) - IF(mob_b_mes_MRC IS NULL,0,mob_b_mes_MRC)) > 0 THEN '2.Upspin'
-                WHEN mob_s_fla_MainMovement = '1.SameRGUs' AND (IF(mob_e_mes_MRC IS NULL,0,mob_e_mes_MRC) - IF(mob_b_mes_MRC IS NULL,0,mob_b_mes_MRC)) < 0 THEN '3.Downspin'
+        ,ROUND((mob_e_mes_MRC - mob_b_mes_MRC),0) AS mob_s_mes_MRCdiff
+        ,CASE   WHEN mob_s_fla_MainMovement = '1.SameRGUs' AND (mob_e_mes_MRC - mob_b_mes_MRC) = 0 THEN '1.Same'
+                WHEN mob_s_fla_MainMovement = '1.SameRGUs' AND (mob_e_mes_MRC - mob_b_mes_MRC) > 0 THEN '2.Upspin'
+                WHEN mob_s_fla_MainMovement = '1.SameRGUs' AND (mob_e_mes_MRC - mob_b_mes_MRC) < 0 THEN '3.Downspin'
                     ELSE '4.NoSpin' END AS mob_s_fla_SpinMovement
 FROM main_movement_flag 
 )
@@ -251,13 +203,13 @@ SELECT  mob_s_dim_month
         ,mob_b_mes_TenureDays
         ,mob_b_att_MaxStart
         ,mob_b_fla_Tenure
-        ,IF(CAST(mob_b_mes_MRC AS VARCHAR) = 'NaN',NULL,mob_b_mes_MRC) AS mob_b_mes_MRC
+        ,mob_b_mes_MRC
         ,mob_b_mes_numRGUS
         ,mob_e_dim_date
         ,mob_e_mes_TenureDays
         ,mob_e_att_MaxStart
         ,mob_e_fla_Tenure
-        ,IF(CAST(mob_e_mes_MRC AS VARCHAR) = 'NaN',NULL,mob_e_mes_MRC) AS mob_e_mes_MRC
+        ,mob_e_mes_MRC
         ,IF(mob_s_fla_ChurnFlag = '1. Mobile Churner',0,mob_e_mes_numRGUS) AS mob_e_mes_numRGUS
         ,IF(mob_s_fla_ChurnFlag = '1. Mobile Churner','6.Null last day',mob_s_fla_MainMovement) AS mob_s_fla_MainMovement
         ,mob_s_mes_MRCdiff
@@ -271,3 +223,22 @@ FROM mobile_table_churn_flag
 SELECT *
 FROM full_flags
 WHERE mob_b_att_active + mob_e_att_active >= 1
+
+
+-- SELECT
+--     mob_s_dim_month, 
+--     mob_b_att_active, 
+--     mob_e_att_active, 
+--     mob_s_fla_MainMovement, 
+--     mob_s_fla_SpinMovement, 
+--     mob_s_fla_ChurnFlag, 
+--     mob_s_fla_ChurnType, 
+--     count(distinct mob_s_att_account) as accounts, 
+--     count(distinct case when mob_b_att_active = 1 then mob_s_att_account else null end) as EOM_RGUs, 
+--     count(distinct case when mob_e_att_active = 1 then mob_s_att_account else null end) as BOM_RGUs
+-- FROM full_flags
+-- WHERE
+--     mob_b_att_active + mob_e_att_active >= 1
+--     -- and mob_s_att_account not in (SELECT mob_s_att_account FROM extra_users)
+-- GROUP BY 1, 2, 3, 4, 5, 6, 7
+-- ORDER BY 4 asc, 5 asc, 6 asc, 7 asc
