@@ -1,7 +1,15 @@
 -----------------------------------------------------------------------------------------
--------------------------- LCPR POSTPAID TABLE - V2 -------------------------------------
+-------------------------- LCPR POSTPAID TABLE - V3 -------------------------------------
 -----------------------------------------------------------------------------------------
 -- CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_mob_mar2023_adj" AS
+
+--- Adjustments in V3 (2/6/2023):
+--- 1. As activation dt is being overwritten, the logic for New Customers and Come Back to Life has changed.
+--- Now we consider the previous 6 months in order to clasify an accounts as New Customer or Come Back to Life.
+--- 2. There were some disconnection reasons that were not valid, they were excluded.
+--- 3. The accounts that were in the base in some of the last 6 months and whose last 
+--- disconnection order has some of those no longer valid reasons are being 'artificially' 
+--- reincorporated to the base.
 
 WITH 
 
