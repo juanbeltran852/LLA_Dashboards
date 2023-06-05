@@ -10,6 +10,7 @@
 --- 3. The accounts that were in the base in some of the last 6 months and whose last 
 --- disconnection order has some of those no longer valid reasons are being 'artificially' 
 --- reincorporated to the base.
+--- 4. (5/6/2023): As a consequence of the artificial addition of accounts, some ended with a blank tenure. This was corrected.
 
 WITH 
 
