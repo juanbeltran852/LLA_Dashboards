@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-02-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-04-01')) as input_month)
 
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
@@ -58,8 +58,8 @@ SELECT
     date(B.completed_date) as dx_end_date,
     cast(B.account_id as varchar) as vol_dx_flag, 
     case 
-        when B.command_id = 'V_DISCO' then 'total_churn' 
-        when B.command_id = 'DOWNGRADE' then 'partial_churn' 
+        when B.command_id = 'V_DISCO' then 'total' 
+        when B.command_id = 'DOWNGRADE' then 'partial' 
     else null end as churn_type
 FROM "lcpr.stage.prod"."so_ln_lcpr" B
 WHERE 
@@ -165,6 +165,9 @@ SELECT
     case when ret_account_id is not null and retained_flag is null and vol_dx_flag is null then 1 else 0 end as not_dx_not_retained, 
     case when dx_no_cc is not null then 1 else 0 end as dx_no_cc,
     
+    case when churn_type = 'total' then 1 else 0 end as total_churn, 
+    case when churn_type = 'partial' then 1 else 0 end as partial_churn,
+    
     --- Counts
     count(distinct dna_id) as accounts, 
     sum(case when dna_id is not null then churned_rgus else null end) as churned_rgus,
@@ -173,10 +176,31 @@ SELECT
     sum(case when dna_id is not null then churned_vo else null end) as churned_vo
 
 FROM fmc_join
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 ORDER BY 13, 14, 15, 16, 17, 18
 )
 
 SELECT
     *
 FROM final_result
+
+
+
+--- ### ### ### Quick check
+
+--- ### Accounts
+
+-- SELECT
+--     sum(accounts*all_attempts) as all_attempts,
+--     sum(accounts*cc_attempts) as cc_attempts, 
+--     sum(accounts*retained) as retained,
+--     sum(accounts*dx_not_retained) as dx_not_ret,
+--     sum(accounts*not_dx_not_retained) as not_dx_not_retained,
+--     sum(accounts*dx_no_cc) as dx_no_cc
+-- FROM final_result
+
+--- ### RGUs 
+
+
+
+
