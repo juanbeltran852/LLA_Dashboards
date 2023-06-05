@@ -401,27 +401,6 @@ SELECT  mob_s_dim_month
 FROM mobile_table_churn_flag
 )
 
-, extra_users as (
-SELECT
-    mob_s_att_account
-FROM full_flags
-WHERE mob_e_mes_TenureDays < 0
-    
-)
-
-, blank_tenure as (
-SELECT
-    -- count(distinct mob_s_att_account) as num_mob
-    *
-FROM "lla_cco_lcpr_ana_dev"."lcpr_fmc_churn_dev"
-WHERE
-    fmc_s_dim_month = (SELECT input_month FROM parameters)
-    and fmc_b_fla_tenure is null
-    and fmc_s_fla_waterfall = 'Upsell'
-    and mob_s_att_account in (SELECT subsrptn_id FROM missing_accounts)
-)
-
-
 SELECT *
 FROM full_flags
 WHERE 
