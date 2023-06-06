@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-04-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
@@ -201,6 +201,47 @@ FROM final_result
 
 --- ### RGUs 
 
+--- All
 
+-- SELECT
+--     sum(churned_rgus*all_attempts) as all_attempts,
+--     sum(churned_rgus*cc_attempts) as cc_attempts, 
+--     sum(churned_rgus*retained) as retained,
+--     sum(churned_rgus*dx_not_retained) as dx_not_ret,
+--     sum(churned_rgus*not_dx_not_retained) as not_dx_not_retained,
+--     sum(churned_rgus*dx_no_cc) as dx_no_cc
+-- FROM final_result
 
+--- BB
+
+-- SELECT
+--     sum(churned_bb*all_attempts) as all_attempts,
+--     sum(churned_bb*cc_attempts) as cc_attempts, 
+--     sum(churned_bb*retained) as retained,
+--     sum(churned_bb*dx_not_retained) as dx_not_ret,
+--     sum(churned_bb*not_dx_not_retained) as not_dx_not_retained,
+--     sum(churned_bb*dx_no_cc) as dx_no_cc
+-- FROM final_result
+
+--- TV 
+
+-- SELECT
+--     sum(churned_tv*all_attempts) as all_attempts,
+--     sum(churned_tv*cc_attempts) as cc_attempts, 
+--     sum(churned_tv*retained) as retained,
+--     sum(churned_tv*dx_not_retained) as dx_not_ret,
+--     sum(churned_tv*not_dx_not_retained) as not_dx_not_retained,
+--     sum(churned_tv*dx_no_cc) as dx_no_cc
+-- FROM final_result
+
+--- VO
+
+-- SELECT
+--     sum(churned_vo*all_attempts) as all_attempts,
+--     sum(churned_vo*cc_attempts) as cc_attempts, 
+--     sum(churned_vo*retained) as retained,
+--     sum(churned_vo*dx_not_retained) as dx_not_ret,
+--     sum(churned_vo*not_dx_not_retained) as not_dx_not_retained,
+--     sum(churned_vo*dx_no_cc) as dx_no_cc
+-- FROM final_result
 
