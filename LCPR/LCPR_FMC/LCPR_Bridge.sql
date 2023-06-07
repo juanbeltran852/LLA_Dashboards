@@ -6,10 +6,10 @@ WITH
 
 parameters AS (
 -- Seleccionar el mes en que se desea realizar la corrida
-SELECT  DATE_TRUNC('month',DATE('2023-04-01')) AS input_month
+SELECT  DATE_TRUNC('month',DATE('2023-05-01')) AS input_month
         ,85 as overdue_days
-        -- , 'NON PAY' as dx_type, '2. Fixed Involuntary Churner' as fix_churn
-        , 'V_DISCO' as dx_type, '1. Fixed Voluntary Churner' as fix_churn 
+        , 'NON PAY' as dx_type, '2. Fixed Involuntary Churner' as fix_churn
+        -- , 'V_DISCO' as dx_type, '1. Fixed Voluntary Churner' as fix_churn 
 )
 
 , fixedtable as (
@@ -22,7 +22,7 @@ SELECT
     fix_s_fla_mainmovement,
     fix_s_fla_churnflag,
     fix_s_fla_churntype
-FROM "db_stage_dev"."lcpr_fixed_apr2023"
+FROM "db_stage_dev"."lcpr_fixed_may2023"
 )
 
 , dna_bom as (
@@ -114,27 +114,100 @@ FULL OUTER JOIN disconnections_so E
     ON A.fix_s_att_account = E.account_id
 )
 
+SELECT * FROM full_joins
+
 --- Misclassified but already in the table
 -- SELECT
-    -- distinct fix_s_fla_mainmovement,
-    -- fix_s_fla_churntype,
-    -- count(distinct fix_s_att_account)
-    -- fix_b_att_active, 
-    -- fix_e_att_active, 
-    -- fix_b_mes_numrgus, 
-    -- fix_e_mes_numrgus, 
-    -- count(distinct fix_s_att_account)
--- FROM "db_stage_dev"."lcpr_fixed_apr2023"
+--     -- distinct fix_s_fla_mainmovement,
+--     fix_s_fla_churntype,
+--     -- count(distinct fix_s_att_account)
+--     -- fix_b_att_active, 
+--     -- fix_e_att_active, 
+--     -- fix_b_mes_numrgus, 
+--     -- fix_e_mes_numrgus, 
+--     count(distinct fix_s_att_account) as Accounts
+-- FROM "db_stage_dev"."lcpr_fixed_may2023"
 -- WHERE
-    -- fix_s_att_account in (SELECT sub_acct_no_ooi FROM order_activity)
-    -- and fix_s_fla_mainmovement = '6.Null last day'
+--     fix_s_att_account in (SELECT sub_acct_no_ooi FROM order_activity)
+--     and fix_s_fla_mainmovement = '6.Null last day'
 -- GROUP BY 1
+-- ORDER BY 1
+
+-- , examples as (
+-- SELECT
+--     fix_s_fla_mainmovement, 
+--     sub_acct_no_ooi,
+--     -- B.order_type,
+--     -- (b_rgus - e_rgus) as rgus_diff,
+--     b_rgus, 
+--     e_rgus, 
+--     order_type
+--     -- count(distinct sub_acct_no_ooi) as Accounts
+-- FROM "db_stage_dev"."lcpr_fixed_may2023" A
+-- LEFT JOIN (
+--     SELECT
+--     *
+--     FROM (
+--     SELECT
+--         *, 
+--         BEF_VIDEO + BEF_HSD + BEF_VOICE AS B_RGUS, 
+--         aft_video + aft_hsd + aft_voice as E_RGUS,
+--         ord_typ as order_type,
+--         row_number() over (partition by sub_acct_no_ooi order by create_dte_ocr desc) as r_nm
+--     FROM "lcpr.sandbox.dev"."transactions_orderactivity"
+--     WHERE 
+--         date_trunc('month', date(ls_chg_dte_ocr)) = (SELECT input_month FROM parameters)
+--         and acct_type = 'R'
+--         )
+--     WHERE r_nm = 1 
+--         -- and order_type = (SELECT dx_type FROM parameters)
+--     ) B
+--     ON A.fix_s_att_account = B.sub_acct_no_ooi
+-- WHERE fix_s_att_account in (SELECT sub_acct_no_ooi FROM order_activity)
+-- -- GROUP BY 1, 2
+-- ORDER BY 1, 2
+-- )
+
+-- SELECT
+--     *
+-- FROM examples
+-- WHERE sub_acct_no_ooi is not null
+
+
+-- SELECT
+--     -- *
+--     ls_chg_dte_ocr, 
+--     order_no_ooi, 
+--     sub_acct_no_ooi, 
+--     ord_typ, 
+--     BEF_VIDEO + BEF_HSD + BEF_VOICE AS B_RGUS, 
+--     aft_video + aft_hsd + aft_voice as E_RGUS
+-- FROM "lcpr.sandbox.dev"."transactions_orderactivity"
+-- WHERE
+--     date_trunc('month', date(ls_chg_dte_ocr)) = (SELECT input_month FROM parameters)
+    -- and sub_acct_no_ooi = 8211080500139464
+    -- and sub_acct_no_ooi = 8211080500143771
+
+-- SELECT
+--     -- distinct fix_s_fla_mainmovement,
+--     -- fix_s_fla_churntype,
+--     -- count(distinct fix_s_att_account)
+--     fix_b_att_active, 
+--     fix_e_att_active, 
+--     fix_b_mes_numrgus, 
+--     fix_e_mes_numrgus, 
+--     count(distinct fix_s_att_account)
+-- FROM "db_stage_dev"."lcpr_fixed_may2023"
+-- WHERE
+--     fix_s_att_account not in (SELECT sub_acct_no_ooi FROM order_activity)
+--     and fix_s_fla_churntype = (SELECT fix_churn FROM parameters)
+-- GROUP BY 1, 2, 3, 4
 
 -- SELECT
 --     fix_s_fla_churntype, count(distinct fix_s_att_account)
--- FROM "db_stage_dev"."lcpr_fixed_apr2023"
+-- FROM "db_stage_dev"."lcpr_fixed_may2023"
 -- WHERE 
---     fix_s_att_account in (SELECT fix_s_att_account FROM (SELECT *, row_number() over (partition by fix_s_att_account) as r_n FROM "db_stage_dev"."lcpr_fixed_apr2023") WHERE r_n > 1)
+--     fix_s_att_account in (SELECT fix_s_att_account FROM (SELECT *, row_number() over (partition by fix_s_att_account) as r_n FROM "db_stage_dev"."lcpr_fixed_may2023") WHERE r_n > 1)
 --     and fix_s_att_account in (SELECT sub_acct_no_ooi FROM order_activity)
 -- GROUP BY 1
 -- ORDER BY 1, 2
@@ -156,27 +229,27 @@ FULL OUTER JOIN disconnections_so E
 -- SELECT
 --     -- *
 --     case 
---         when delinquency_days > 85 then 'overdue bom > 85'
---         when delinquency_days <= 85 then 'overdue bom <= 85'
+--         when delinquency_days > 85 then 'overdue > 85'
+--         when delinquency_days <= 85 then 'overdue <= 85'
 --         when delinquency_days is null then 'null overdue'
 --     else null end as overdue_class, 
 --     count(distinct sub_acct_no_sbb)
 -- FROM dna_bom
 -- WHERE sub_acct_no_sbb not in (SELECT fix_s_att_account FROM fixedtable)
 --     and sub_acct_no_sbb in (SELECT sub_acct_no_ooi FROM order_activity)
-    -- and delinquency_days < 85
 -- GROUP BY 1
 
-SELECT
-    b_rgus, 
-    e_rgus, 
-    count(distinct sub_acct_no_ooi)
-FROM order_activity
-WHERE 
-    sub_acct_no_ooi not in (SELECT sub_acct_no_sbb FROM dna_bom)
-    and sub_acct_no_ooi not in (SELECT fix_s_att_account FROM fixedtable)
-GROUP BY 1, 2
-ORDER BY 1, 2
+
+-- SELECT
+--     b_rgus, 
+--     e_rgus, 
+--     count(distinct sub_acct_no_ooi)
+-- FROM order_activity
+-- WHERE 
+--     sub_acct_no_ooi not in (SELECT sub_acct_no_sbb FROM dna_bom)
+--     and sub_acct_no_ooi not in (SELECT fix_s_att_account FROM fixedtable)
+-- GROUP BY 1, 2
+-- ORDER BY 1, 2
 
 -- SELECT
 --     count(distinct fix_s_att_account)
