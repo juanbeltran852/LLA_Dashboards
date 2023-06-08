@@ -9,7 +9,8 @@ FROM "lcpr.sandbox.dev"."transactions_orderactivity"
 WHERE 
     date_trunc('month', date(ls_chg_dte_ocr)) = (SELECT input_month FROM parameters)
     and acct_type = 'R'
-    and ord_typ = 'V_DISCO'
+    -- and ord_typ = 'V_DISCO'
+    and ord_typ = 'NON PAY'
 )
 
 , order_activity as (
@@ -81,7 +82,12 @@ WHERE
 
 , final_join as (
 SELECT
+    -- case 
+    --     when A.account_id is null then C.fix_s_att_account
+    --     when A.account_id is null and C.fix_s_att_account is null then B.account_id
+    -- else A.account_id end as final_account,
     A.*, 
+    -- B.account_id as b_id,
     B.first_dt, 
     B.initial_rgus,
     B.initial_overduedays,
@@ -89,26 +95,65 @@ SELECT
     B.last_dt, 
     B.final_rgus, 
     B.final_overduedays, 
-    B.final_oldest_unpaid_bill_dt, 
+    B.final_oldest_unpaid_bill_dt,
+    -- C.fix_s_att_account,
     C.fix_s_fla_mainmovement,
     C.fix_s_fla_churntype, 
     case when A.initial_rgus != B.initial_rgus or A.final_rgus != B.final_rgus then '*' else null end as check
 FROM customer_summary A
-LEFT JOIN dna B
+LEFT OUTER JOIN dna B
     ON A.account_id = B.account_id
-LEFT JOIN fixed_table C
+FULL OUTER JOIN fixed_table C
     ON A.account_id = C.fix_s_att_account
 )
 
 SELECT
     *
+    -- count(distinct account_id),
+    -- count(distinct b_id),
+    -- count(distinct fix_s_att_account)
 FROM final_join
 WHERE
-    -- fix_s_fla_mainmovement = '6.Null last day'
-    fix_s_fla_mainmovement is null and first_dt is null
+    fix_s_fla_mainmovement = '1.SameRGUs' -- and fix_s_fla_churntype = '2. Fixed Involuntary Churner'
+    -- b_id is null and fix_s_att_account is null -- and first_dt is null
+    -- and account_id is null
     and account_id in (SELECT account_id FROM accounts_of_analysis)
 ORDER BY random(*)
 LIMIT 10
+
+-- SELECT
+--     'Involuntary churn' as OpCo_flag,
+--     fix_s_fla_mainmovement as Oval_flag,
+--     count(distinct account_id)
+-- FROM final_join
+-- WHERE check is not null
+--     and account_id in (SELECT account_id FROM accounts_of_analysis)
+-- GROUP BY 1, 2
+-- Order by 2
+
+-- SELECT
+--     *
+-- FROM customer_summary
+-- WHERE
+--     account_id not in (SELECT fix_s_att_account FROM fixed_table)
+--     and account_id not in (SELECT account_id FROM dna)
+-- LIMIT 10
+
+-- SELECT
+--     A.*, 
+--     B.fix_s_fla_mainmovement,
+--     B.fix_s_fla_churntype
+-- FROM dna A
+-- LEFT JOIN fixed_table B
+--     ON A.account_id = B.fix_s_att_account
+-- WHERE A.account_id not in (SELECT account_id FROM customer_summary)
+--     and fix_s_fla_churntype = '2. Fixed Involuntary Churner'
+-- LIMIT 10
+
+-- SELECT
+--     *
+-- FROM final_join
+-- WHERE final_account = 8211990040242740
 
 
 -- , flags_comparison as (
@@ -146,10 +191,31 @@ LIMIT 10
 -- ORDER BY num_orders desc
 
 -- SELECT
---     *
+--     -- *
+--     dt,
+--     sub_acct_no_sbb as account_id, 
+--     (video + hsd + voice) as num_rgus,
+--     date(bill_from_dte_sbb) as oldest_unpaid_bill_dt, 
+--     delinquency_days
+-- FROM "lcpr.stage.prod"."insights_customer_services_rates_lcpr"
+-- WHERE
+--     play_type <> '0P'
+--     and cust_typ_sbb = 'RES' 
+--     and date_trunc('month', date(dt)) = (SELECT input_month FROM parameters)
+--     -- and sub_acct_no_sbb = 8211080740348289
+--     and sub_acct_no_sbb = 8211990040242745
+-- ORDER BY dt
+
+-- SELECT
+--     -- *
+--     ls_chg_dte_ocr as dt, 
+--     (bef_video + bef_hsd + bef_voice) as rgus_before, 
+--     (aft_video + aft_hsd + aft_voice) as rgus_after, 
+--     ord_typ as order_type
 -- FROM "lcpr.sandbox.dev"."transactions_orderactivity"
 -- WHERE 
 --     date_trunc('month', date(ls_chg_dte_ocr)) = (SELECT input_month FROM parameters)
---     and acct_type = 'R'
--- --     and sub_acct_no_ooi = 8211060040000483	
---     and sub_acct_no_ooi = 8211080560277451
+--     and acct_type = 'R'	
+--     -- and sub_acct_no_ooi = 8211080740348289 
+--     -- and sub_acct_no_ooi = 8211990040242745
+-- ORDER BY 1 asc
