@@ -114,9 +114,7 @@ SELECT
     other_interaction_info10, 
     ret_date, 
     
-    -- case when vol_dx_flag is not null and ret_account_id is null then vol_dx_flag else null end as dx_no_cc, 
-    
-    case when dx_no_cc is not null and fix_s_fla_mainmovement in ('6.Null last day', '3.Downsell') then 1 else 0 end as dx_no_cc,
+    case when vol_dx_flag is not null and ret_account_id is null then vol_dx_flag else null end as dx_no_cc, 
     
     case when ret_account_id is not null and other_interaction_info10 = 'Retained Customer' and vol_dx_flag is null then ret_account_id else null end as retained_flag
     
