@@ -4,7 +4,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-04-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-01-01')) as input_month)
 
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
@@ -230,7 +230,7 @@ FROM final_result
 --     sum(churned_bb*dx_not_retained) as dx_not_ret,
 --     sum(churned_bb*not_dx_not_retained) as not_dx_not_retained,
 --     sum(churned_bb*dx_no_cc) as dx_no_cc, 
-    -- sum(churned_bb*bajas_no_cursadas) as bajas_no_cursadas
+--     sum(churned_bb*bajas_no_cursadas) as bajas_no_cursadas
 -- FROM final_result
 
 --- TV 
@@ -254,5 +254,5 @@ FROM final_result
 --     sum(churned_vo*dx_not_retained) as dx_not_ret,
 --     sum(churned_vo*not_dx_not_retained) as not_dx_not_retained,
 --     sum(churned_vo*dx_no_cc) as dx_no_cc,
-    -- sum(churned_bo*bajas_no_cursadas) as bajas_no_cursadas
+--     sum(churned_vo*bajas_no_cursadas) as bajas_no_cursadas
 -- FROM final_result
