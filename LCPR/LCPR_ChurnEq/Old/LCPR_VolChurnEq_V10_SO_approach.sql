@@ -230,7 +230,8 @@ FROM final_result
 --     sum(churned_bb*retained) as retained,
 --     sum(churned_bb*dx_not_retained) as dx_not_ret,
 --     sum(churned_bb*not_dx_not_retained) as not_dx_not_retained,
---     sum(churned_bb*dx_no_cc) as dx_no_cc
+--     sum(churned_bb*dx_no_cc) as dx_no_cc,
+--     sum(churned_bb*bajas_no_cursadas) as bajas_no_cursadas
 -- FROM final_result
 
 --- TV 
@@ -241,7 +242,8 @@ FROM final_result
 --     sum(churned_tv*retained) as retained,
 --     sum(churned_tv*dx_not_retained) as dx_not_ret,
 --     sum(churned_tv*not_dx_not_retained) as not_dx_not_retained,
---     sum(churned_tv*dx_no_cc) as dx_no_cc
+--     sum(churned_tv*dx_no_cc) as dx_no_cc,
+--     sum(churned_tv*bajas_no_cursadas) as bajas_no_cursadas
 -- FROM final_result
 
 --- VO
@@ -252,5 +254,6 @@ FROM final_result
 --     sum(churned_vo*retained) as retained,
 --     sum(churned_vo*dx_not_retained) as dx_not_ret,
 --     sum(churned_vo*not_dx_not_retained) as not_dx_not_retained,
---     sum(churned_vo*dx_no_cc) as dx_no_cc
+--     sum(churned_vo*dx_no_cc) as dx_no_cc, 
+--     sum(churned_vo*bajas_no_cursadas) as bajas_no_cursadas
 -- FROM final_result
