@@ -72,9 +72,20 @@ SELECT
     date(B.order_start_date) as dx_date,
     date(B.completed_date) as dx_end_date,
     cast(B.account_id as varchar) as vol_dx_flag
-FROM "lcpr.stage.prod"."so_ln_lcpr" B
+FROM (
+    SELECT 
+        order_start_date,  
+        completed_date, 
+        case when (SELECT input_month FROM parameters) = date('2023-02-01') then date(order_start_date) else date(completed_date) end as workaround_date,
+        account_id, 
+        command_id, 
+        order_status, 
+        account_type, 
+        cease_reason_desc
+    FROM "lcpr.stage.prod"."so_ln_lcpr"
+    ) B
 WHERE 
-    date_trunc('month', date(B.completed_date)) = (SELECT input_month FROM parameters)
+    date_trunc('month', date(B.workaround_date)) = (SELECT input_month FROM parameters)
     -- date_trunc('month', date(B.completed_date)) = (SELECT input_month FROM parameters)
     and (B.command_id = 'V_DISCO' or B.command_id = 'DOWNGRADE')
     and B.account_type = 'RES'
