@@ -6,7 +6,7 @@
 
 WITH
 
-parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
+parameters as (SELECT date_trunc('month', date('2023-05-01')) as input_month)
 
 --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- ---
 --- --- --- --- --- --- --- --- --- --- --- --- FMC --- --- --- --- --- --- --- --- --- --- --- ---
@@ -16,7 +16,7 @@ parameters as (SELECT date_trunc('month', date('2023-03-01')) as input_month)
 , fmc_table as (
 SELECT
     *
-FROM "lla_cco_lcpr_ana_prod"."lcpr_fmc_churn_dev"
+FROM "lla_cco_lcpr_ana_dev"."lcpr_fmc_churn_dev"
 WHERE 
     fmc_s_dim_month = (SELECT input_month FROM parameters)
 )
@@ -93,7 +93,7 @@ FROM softdx
 , harddx as (
 SELECT 
     distinct *, 
-    case when duedays >= 85 /*and fmc_s_fla_churntype in ('Involuntary Churner')*/ then sub_acct_no_sbb else null end as harddxflag
+    case when duedays >= 85 and fmc_s_fla_churntype in ('Involuntary Churner') then sub_acct_no_sbb else null end as harddxflag
 FROM backlog
 )
 
