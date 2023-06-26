@@ -153,7 +153,7 @@ SELECT
     count(distinct fix_s_att_account) as che_s_mes_active_base,
     count(distinct fix_e_fla_bb) as che_s_mes_total_bb, 
     count(distinct fix_e_fla_tv) as che_s_mes_total_tv, 
-    count(distinct fix_e_fla_vo) as che_s_mes_total_vo 
+    count(distinct fix_e_fla_vo) as che_s_mes_total_vo, 
     
     count(distinct overdueday1flag) as che_s_mes_day1, 
     count(distinct softdxflag) as che_s_mes_softdx, 
