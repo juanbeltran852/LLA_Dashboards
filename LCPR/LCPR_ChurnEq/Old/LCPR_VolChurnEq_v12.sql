@@ -207,6 +207,7 @@ FROM fmc_join
 SELECT
     --- FMC flags
     distinct fmc_s_dim_month, 
+    dt,
     fmc_b_fla_tech, 
     fmc_b_fla_fmcsegment, 
     fmc_b_fla_fmc, 
@@ -234,7 +235,7 @@ SELECT
     sum(rgus_eom) as rgus_eom
     
 FROM final_result_pre
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
     
 )
 
