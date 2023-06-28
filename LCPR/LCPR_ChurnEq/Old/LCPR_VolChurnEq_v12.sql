@@ -165,13 +165,13 @@ LEFT JOIN fmc_table B
 
 , final_result_pre as (
 SELECT
-    dna_id, 
+    distinct dna_id, 
     num_rgus_diss,
     rgus_bom, 
     rgus_eom,
     
     --- FMC flags
-    distinct fmc_s_dim_month, 
+    fmc_s_dim_month, 
     fmc_b_fla_tech, 
     fmc_b_fla_fmcsegment, 
     fmc_b_fla_fmc, 
@@ -181,7 +181,7 @@ SELECT
     fmc_b_fla_tenure, 
     fmc_e_fla_tenure, 
     fix_s_fla_mainmovement,
-    fix_s_fla_churntype
+    fix_s_fla_churntype,
     
     --- Dummies
     case when dx_no_cc is not null or ret_account_id is not null then 1 else 0 end as all_attempts, 
@@ -199,8 +199,8 @@ SELECT
     (SELECT input_month FROM parameters) as dt
 
 FROM fmc_join
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17--, 18
-ORDER BY 13, 14, 15, 16, 17--, 18
+-- GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17--, 18
+-- ORDER BY 13, 14, 15, 16, 17--, 18
 )
 
 , final_result as (
@@ -224,14 +224,15 @@ SELECT
     dx_no_cc, 
     
     --- Accounts
-    count(distinct case when fix_s_fla_mainmovement = '3.Downsell' then 0 else dna_id*all_attempts) as intention_id_count
+    count(distinct case when fix_s_fla_mainmovement = '3.Downsell' then 0 else dna_id*all_attempts end) as intention_id_count,
     count(distinct dna_id*cc_attempts) as retention_isle_intents,
     count(distinct dna_id*retained) as retained,
     
     --- RGUs
     sum(num_rgus_diss) as num_rgus_diss, 
     sum(rgus_bom) as rgus_bom, 
-    sum(rgus_eom) as rgus_eom,
+    sum(rgus_eom) as rgus_eom
+    
 FROM final_result_pre
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
     
