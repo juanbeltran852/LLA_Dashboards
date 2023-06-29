@@ -237,10 +237,20 @@ forward_months as (
 SELECT
     date_trunc('month', date(A.dt)) as month_survival, 
     A.dt, 
-    A.accountno,
-    A.serviceno,
+    C.accountno,
+    C.serviceno,
     -- B.accountno as invol_churn_flag, 
-    C.first_bill_created_dt
+    C.first_bill_created_dt, 
+    C.sell_date, 
+    C.province, 
+    C.district, 
+    C.procedencia, 
+    C.sell_channel, 
+    C.agent_acc_code, 
+    C.npn_30_flag, 
+    C.npn_60_flag, 
+    C.npn_90_flag, 
+    C.npn_flag
 FROM "db-analytics-prod"."tbl_postpaid_cwp" A
 RIGHT JOIN gross_pagos_npn C
     ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
@@ -252,8 +262,18 @@ WHERE
 
 acct_panel_surv as (
 select 
+date_trunc('month', date(sell_date)) as sales_month, 
 -- accountno,
 serviceno,
+province,
+district,
+procedencia, 
+sell_channel, 
+agent_acc_code as cod_sales_rep, 
+npn_30_flag, 
+npn_60_flag, 
+npn_90_flag,
+npn_flag,
 max(first_bill_created_dt) as max_oldest_unpaid_bill_dt,
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '0' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '1' month)  and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 1 else null end) as surv_M0,
 -- max(case when month_survival = (select input_month from parameters) + interval '0' month then fi_outst_age else null end) as fi_outst_age_M0,
@@ -270,29 +290,29 @@ max(case when month_survival = (SELECT input_month FROM parameters) + interval '
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '11' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then 1 else null end) as surv_M11,
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '12' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then 1 else null end) as surv_M12
 from forward_months 
-group by 
-    -- accountno
-    serviceno
+group by 1,2,3,4,5,6,7,8,9,10,11
 )
 
 
-SELECT
-    sum(surv_m0) as m0, 
-    sum(surv_m1) as m1, 
-    sum(surv_m2) as m2, 
-    sum(surv_m3) as m3, 
-    sum(surv_m4) as m4, 
-    sum(surv_m5) as m5, 
-    sum(surv_m6) as m6, 
-    sum(surv_m7) as m7,
-    sum(surv_m8) as m8,
-    sum(surv_m9) as m9, 
-    sum(surv_m10) as m10, 
-    sum(surv_m11) as m11, 
-    sum(surv_m12) as m12
-FROM acct_panel_surv
-
 -- SELECT
---     -- count(distinct accountno)
---     count(distinct serviceno)
+--     sum(surv_m0) as m0, 
+--     sum(surv_m1) as m1, 
+--     sum(surv_m2) as m2, 
+--     sum(surv_m3) as m3, 
+--     sum(surv_m4) as m4, 
+--     sum(surv_m5) as m5, 
+--     sum(surv_m6) as m6, 
+--     sum(surv_m7) as m7,
+--     sum(surv_m8) as m8,
+--     sum(surv_m9) as m9, 
+--     sum(surv_m10) as m10, 
+--     sum(surv_m11) as m11, 
+--     sum(surv_m12) as m12
 -- FROM acct_panel_surv
+
+SELECT
+    -- count(distinct accountno)
+    -- count(distinct serviceno)
+    *
+FROM acct_panel_surv
+LIMIT 10
