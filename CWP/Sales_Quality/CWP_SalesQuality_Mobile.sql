@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-06-01') as input_month, 
+    date('2022-01-01') as input_month, 
     date_trunc('month', date('2023-05-01')) as current_month
 ),
 
@@ -235,25 +235,28 @@ LEFT JOIN drc_table  B
 
 forward_months as (
 SELECT
+    distinct A.serviceno,
+    A.accountno,
     date_trunc('month', date(A.dt)) as month_survival, 
-    A.dt, 
-    C.accountno,
-    C.serviceno,
+    -- A.dt, 
+    -- A.accountno,
+    -- A.serviceno,
     -- B.accountno as invol_churn_flag, 
-    C.first_bill_created_dt, 
+    -- C.first_bill_created_dt, 
     C.sell_date, 
     C.province, 
     C.district, 
     C.procedencia, 
     C.sell_channel, 
     C.agent_acc_code, 
-    C.npn_30_flag, 
-    C.npn_60_flag, 
+    C.npn_30_flag,
+    C.npn_60_flag,
     C.npn_90_flag, 
     C.npn_flag
 FROM "db-analytics-prod"."tbl_postpaid_cwp" A
 RIGHT JOIN gross_pagos_npn C
     ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
+    -- ON cast(A.accountno as varchar) = cast(C.accountno as varchar)
 WHERE
     A.account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
     and A.category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
@@ -262,19 +265,22 @@ WHERE
 
 acct_panel_surv as (
 select 
+month_survival,
 date_trunc('month', date(sell_date)) as sales_month, 
--- accountno,
+accountno,
 serviceno,
-province,
-district,
-procedencia, 
-sell_channel, 
-agent_acc_code as cod_sales_rep, 
-npn_30_flag, 
-npn_60_flag, 
-npn_90_flag,
+-- province,
+-- district,
+-- procedencia, 
+-- sell_channel, 
+-- agent_acc_code as cod_sales_rep, 
+-- npn_30_flag, 
+-- npn_60_flag, 
+-- npn_90_flag,
 npn_flag,
-max(first_bill_created_dt) as max_oldest_unpaid_bill_dt,
+-- case
+    -- when cast(accountno as varchar) in 
+-- max(first_bill_created_dt) as max_oldest_unpaid_bill_dt,
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '0' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '1' month)  and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 1 else null end) as surv_M0,
 -- max(case when month_survival = (select input_month from parameters) + interval '0' month then fi_outst_age else null end) as fi_outst_age_M0,
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '1' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then 1 else null end) as surv_M1,
@@ -289,30 +295,163 @@ max(case when month_survival = (SELECT input_month FROM parameters) + interval '
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '10' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) then 1 else null end) as surv_M10,
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '11' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then 1 else null end) as surv_M11,
 max(case when month_survival = (SELECT input_month FROM parameters) + interval '12' month and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) and cast(accountno as varchar) not in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then 1 else null end) as surv_M12
+
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '0' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '0' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '1' month) then 1
+-- else null end) as churn_M0, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '1' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '1' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then 1
+-- else null end) as churn_M1, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '2' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '2' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day) then 1
+-- else null end) as churn_M2, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '3' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '3' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day) then 1
+-- else null end) as churn_M3, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '4' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '4' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day) then 1
+-- else null end) as churn_M4, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '5' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '5' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day) then 1
+-- else null end) as churn_M5,
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '6' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '6' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day) then 1
+-- else null end) as churn_M6,
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '7' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '7' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day) then 1
+-- else null end) as churn_M7, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '8' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '8' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day) then 1
+-- else null end) as churn_M8, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '9' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '9' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day) then 1
+-- else null end) as churn_M9, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '10' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '10' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) then 1
+-- else null end) as churn_M10, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '11' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '11' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then 1
+-- else null end) as churn_M11, 
+-- max(case 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '12' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then 1 
+--     when month_survival = (SELECT input_month FROM parameters) + interval '12' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then 1
+-- else null end) as churn_M12 
+
 from forward_months 
-group by 1,2,3,4,5,6,7,8,9,10,11
+group by 1,2,3,4,5--,6,7,8,9,10,11
+),
+
+panel_churntype as (
+SELECT
+    *, 
+max(case  
+    when surv_m0 <> 1 and (month_survival = (SELECT input_month FROM parameters) + interval '0' month) and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m0 <> 1 and (month_survival = (SELECT input_month FROM parameters) + interval '0' month) and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '1' month) then 'Voluntary churner'
+    else null end) as churntype_M0, 
+max(case  
+    when surv_m1 <> 1 and (month_survival = (SELECT input_month FROM parameters) + interval '1' month) and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m1 <> 1 and (month_survival = (SELECT input_month FROM parameters) + interval '1' month) and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M1, 
+max(case  
+    when /*surv_m2 <> 1 and*/ (month_survival = (SELECT input_month FROM parameters) + interval '2' month) and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day) then 'Involuntary churner' 
+    when /*surv_m2 <> 1 and*/ (month_survival = (SELECT input_month FROM parameters) + interval '2' month) and cast(serviceno as varchar) not in (SELECT cast(serviceno as varchar) FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE /*account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and */ date(dt) = (SELECT input_month FROM parameters) + interval '3' month /*- interval '1' day*/) then 'Voluntary churner'
+    else null end) as churntype_M2, 
+max(case  
+    when surv_m3 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '3' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m3 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '3' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M3, 
+max(case  
+    when surv_m4 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '4' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m4 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '4' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M4, 
+max(case  
+    when surv_m5 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '5' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m5 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '5' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M5, 
+max(case  
+    when surv_m6 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '6' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m6 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '6' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M6, 
+max(case  
+    when surv_m7 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '7' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m7 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '7' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M7, 
+max(case  
+    when surv_m8 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '8' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m8 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '8' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M8, 
+max(case  
+    when surv_m9 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '9' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m9 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '9' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M9, 
+max(case  
+    when surv_m10 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '10' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m10 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '10' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M10, 
+max(case  
+    when surv_m11 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '11' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m11 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '11' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M11, 
+max(case  
+    when surv_m12 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '12' month and cast(accountno as varchar) in (SELECT cast(act_acct_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then 'Involuntary churn' 
+    when surv_m12 <> 1 and month_survival = (SELECT input_month FROM parameters) + interval '12' month and cast(serviceno as varchar) not in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then 'Voluntary churner'
+    else null end) as churntype_M12 
+FROM acct_panel_surv
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18
 )
 
-
 -- SELECT
---     sum(surv_m0) as m0, 
---     sum(surv_m1) as m1, 
---     sum(surv_m2) as m2, 
---     sum(surv_m3) as m3, 
---     sum(surv_m4) as m4, 
---     sum(surv_m5) as m5, 
---     sum(surv_m6) as m6, 
---     sum(surv_m7) as m7,
---     sum(surv_m8) as m8,
---     sum(surv_m9) as m9, 
---     sum(surv_m10) as m10, 
---     sum(surv_m11) as m11, 
---     sum(surv_m12) as m12
+-- --     sum(surv_m0) as m0, 
+-- --     sum(surv_m1) as m1, 
+-- --     sum(surv_m2) as m2, 
+-- --     sum(surv_m3) as m3, 
+-- --     sum(surv_m4) as m4, 
+-- --     sum(surv_m5) as m5, 
+-- --     sum(surv_m6) as m6, 
+-- --     sum(surv_m7) as m7,
+-- --     sum(surv_m8) as m8,
+-- --     sum(surv_m9) as m9, 
+-- --     sum(surv_m10) as m10, 
+-- --     sum(surv_m11) as m11, 
+-- --     sum(surv_m12) as m12,
+
+--     sum(churn_M0) as churn_m0, 
+--     sum(churn_M1) as churn_m1, 
+--     sum(churn_M2) as churn_M2, 
+--     sum(churn_M3) as churn_M3, 
+--     sum(churn_M4) as churn_M4, 
+--     sum(churn_M5) as churn_M5, 
+--     sum(churn_M6) as churn_M6, 
+--     sum(churn_M7) as churn_M7, 
+--     sum(churn_M8) as churn_M8, 
+--     sum(churn_M9) as churn_M9, 
+--     sum(churn_M10) as churn_M10, 
+--     sum(churn_M11) as churn_M11, 
+--     sum(churn_M12) as churn_M12
+    
 -- FROM acct_panel_surv
 
 SELECT
-    -- count(distinct accountno)
-    -- count(distinct serviceno)
-    *
-FROM acct_panel_surv
-LIMIT 10
+    distinct churntype_m2, count(distinct serviceno)
+FROM panel_churntype
+GROUP BY 1
+
+-- SELECT
+-- --     -- count(distinct accountno)
+-- --     -- count(distinct serviceno)
+--     count(distinct npn_flag)
+-- --     *
+-- FROM acct_panel_surv
+-- -- LIMIT 10
