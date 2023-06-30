@@ -223,19 +223,18 @@ SELECT
     --- Vol Churn Eq flags
     cc_attempts, 
     dx_no_cc, 
+    all_attempts as intention_id_count,
     
     --- Accounts
-    count(distinct case when fix_s_fla_mainmovement = '3.Downsell' then 0 else dna_id*all_attempts end) as intention_id_count,
-    count(distinct dna_id*cc_attempts) as retention_isle_intents,
     count(distinct dna_id*retained) as retained,
     
     --- RGUs
-    sum(num_rgus_diss) as num_rgus_diss, 
-    sum(rgus_bom) as rgus_bom, 
+    sum(num_rgus_diss) as num_rgus_diss,
+    sum(rgus_bom) as rgus_bom,
     sum(rgus_eom) as rgus_eom
     
 FROM final_result_pre
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
     
 )
 
@@ -307,4 +306,17 @@ FROM final_result
 --     sum(churned_vo*not_dx_not_retained) as not_dx_not_retained,
 --     sum(churned_vo*dx_no_cc) as dx_no_cc, 
 --     sum(churned_vo*bajas_no_cursadas) as bajas_no_cursadas
+-- FROM final_result
+
+
+--- ### Power Bi calculations
+
+-- SELECT
+    -- sum(cc_attempts*rgus_bom) as intent_to_churn_cc, 
+    
+    -- sum(if(cc_attempts = 1 and (dx_type = 'Voluntary' or dx_type = '1. Fixed Voluntary Churner'), num_rgus_diss*intention_id_count, 0)) as completed_churn_orders_cc, 
+    
+    -- sum(if(dx_no_cc = 1, rgus_bom*intention_id_count)) as non_completed_churn_orders_cc
+    
+    -- sum(intention_id_count) - sum()
 -- FROM final_result
