@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-05-01') as input_month, 
+    date('2022-10-01') as input_month, 
     date_trunc('month', date('2023-05-01')) as current_month
 ),
 
@@ -78,6 +78,8 @@ WHERE
     account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
     and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
     and date_trunc('month', date(dt)) = (SELECT input_month FROM parameters) -------- Why should I consider a time range between the input month and 4 months ahead?
+    and total_mrc_d not in ('CORP 900')
+    and tot_inv_mo not in ('CORP 900')
 ),
 
 info_gross as (
@@ -406,5 +408,5 @@ LEFT JOIN churn C
     ON A.serviceno = C.serviceno
 LEFT JOIN churn_type D
     ON A.serviceno = D.serviceno
-LIMIT 10
+-- LIMIT 10
 
