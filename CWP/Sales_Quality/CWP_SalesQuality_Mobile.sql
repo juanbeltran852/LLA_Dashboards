@@ -8,7 +8,7 @@ WITH
 parameters as (
 SELECT 
     date('2022-12-01') as input_month, 
-    date_trunc('month', date('2023-07-01')) as current_month
+    date_trunc('month', date('2023-06-01')) as current_month
 ),
 
 --------------------------------------------------------------------------------
