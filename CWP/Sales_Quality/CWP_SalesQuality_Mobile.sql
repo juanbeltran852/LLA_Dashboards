@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-10-01') as input_month, 
+    date('2023-01-01') as input_month, 
     date_trunc('month', date('2023-05-01')) as current_month
 ),
 
@@ -78,18 +78,18 @@ WHERE
     account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
     and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
     and date_trunc('month', date(dt)) = (SELECT input_month FROM parameters) -------- Why should I consider a time range between the input month and 4 months ahead?
-    and total_mrc_d not in ('CORP 900')
-    and tot_inv_mo not in ('CORP 900')
+    -- and total_mrc_d not in ('CORP 900')
+    -- and tot_inv_mo not in ('CORP 900')
 ),
 
 info_gross as (
 SELECT
-    distinct A.accountno, 
-    A.serviceno, 
+    distinct A.serviceno, 
+    A.accountno, 
     A.sell_date, 
-    A.sell_channel, 
-    A.procedencia, 
-    A.agent_acc_code, 
+    first_value(A.sell_channel) over (partition by A.serviceno order by A.sell_channel) as sell_channel,
+    first_value(A.procedencia) over (partition by A.serviceno order by A.procedencia) as procedencia,
+    first_value(A.agent_acc_code) over (partition by A.serviceno order by A.agent_acc_code) as agent_acc_code,
     A.plan_name, 
     B.first_dt_user, 
     B.total_mrc_d,
@@ -449,6 +449,7 @@ ORDER BY A.serviceno
 -- ORDER BY A.serviceno
 -- )
 
+, final_result as (
 SELECT
     distinct A.serviceno, 
     A.accountno, 
@@ -461,11 +462,15 @@ SELECT
     A.npn_30_flag,
     A.npn_60_flag,
     A.npn_90_flag, 
-    A.npn_flag,
-    B.*, 
-    C.*,
-    D.*, 
-    E.*
+    A.npn_flag--,
+    -- B.*, 
+    -- surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12, 
+    -- C.*,
+    -- churn_m0, churn_m1, churn_m2, churn_m3, churn_m4, churn_m5, churn_m6, churn_m7, churn_m8, churn_m9, churn_m10, churn_m11, churn_m12, 
+    -- D.*, 
+    -- invol_m0, invol_m1, invol_m2, invol_m3, invol_m4, invol_m5, invol_m6, invol_m7, invol_m8, invol_m9, invol_m10, invol_m11, invol_m12, 
+    -- E.*
+    -- vol_m0, vol_m1, vol_m2, vol_m3, vol_m4, vol_m5, vol_m6, vol_m7, vol_m8, vol_m9, vol_m10, vol_m11, vol_m12
     -- first_value(churntype_m0) over (partition by C.serviceno order by churntype_m0 asc) as churntype_m0, 
     -- first_value(churntype_m1) over (partition by C.serviceno order by churntype_m1 asc) as churntype_m1, 
     -- first_value(churntype_m2) over (partition by C.serviceno order by churntype_m2 asc) as churntype_m2, 
@@ -490,9 +495,15 @@ LEFT JOIN vol_churn D
     ON A.serviceno = D.serviceno
 LEFT JOIN invol_churn E
     ON A.serviceno = E.serviceno
+)
+
+SELECT 
+    *
+FROM final_result
 -- LIMIT 10
 
 -- SELECT 
---     *
--- FROM churn
--- LIMIT 10
+--     count(*), 
+--     count(distinct serviceno)
+-- FROM final_result
+
