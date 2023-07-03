@@ -1,13 +1,12 @@
 --------------------------------------------------------------------------------
 -------------------------- CWP - SALES QUALITY MOBILE --------------------------
 --------------------------------------------------------------------------------
---- 23/06/2023
 
 WITH
 
 parameters as (
 SELECT 
-    date('2022-12-01') as input_month, 
+    date('2023-05-01') as input_month, 
     date_trunc('month', date('2023-06-01')) as current_month
 ),
 
@@ -30,29 +29,7 @@ WHERE
 -- LIMIT 1000
 ), 
 
-info_early_clients as (
-SELECT
-    distinct trim(cast(accountno as varchar)) AS accountno,
-    trim(cast(serviceno as varchar)) as serviceno,
-    case when fi_bill_dt_m0 is null then first_dt_user  else date(fi_bill_dt_m0) end as first_bill_created_dt,
-    min(date(dt)) AS first_dt
-FROM (
-    SELECT     
-        DATE(dt) AS dt,
-        accountno,
-        serviceno,
-        fi_bill_dt_m0,
-        MIN(DATE(dt)) OVER(PARTITION BY TRIM(CAST(accountno AS VARCHAR))) AS first_dt_user 
-    FROM "db-analytics-prod"."tbl_postpaid_cwp"
-    WHERE
-        account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
-        and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
-        and date_trunc('month', date(dt)) between (SELECT input_month FROM parameters) - interval '6' month and (SELECT input_month FROM Parameters) --- Use just dt and consider also 1st day of next month?
-    GROUP BY 1, 2, 3, 4
-    )
-WHERE date_trunc('month', first_dt_user) = (SELECT input_month FROM parameters)
-GROUP BY accountno, 2, 3
-),
+--- Info early clients
 
 --------------------------------------------------------------------------------
 ---------------------------------- Postpaid DNA -------------------------------
@@ -95,7 +72,8 @@ SELECT
     B.total_mrc_d,
     B.category, 
     B.province, 
-    B.district
+    B.district, 
+    case when B.fi_bill_dt_m0 is null then B.first_dt_user else date(fi_bill_dt_m0) end as first_bill_created_dt
 FROM gross_adds A
 INNER JOIN useful_dna B
     ON cast(A.serviceno as varchar) = cast(B.serviceno_dna as varchar)
@@ -108,39 +86,33 @@ INNER JOIN useful_dna B
 
 info_pagos as (
 SELECT
-    distinct cast(early.serviceno as varchar) as serviceno_pagos, 
-    cast(early.accountno as varchar) as accountno_pagos,
-    early.first_bill_created_dt as first_bill_created_dt, 
-    --- Array 1
-    --- Array 2
-    --- Array 3
-    --- Array 4
+    distinct cast(A.serviceno as varchar) as serviceno_pagos, 
+    cast(A.accountno as varchar) as accountno_pagos, 
+    A.first_bill_created_dt, 
+    round(SUM(TRY_CAST(payment_amt_local AS DOUBLE)), 2) AS pmnt_sell_month_ammnt,
     round(sum(cast(payment_amt_local as double)), 2) as total_payments_in_3_months, 
-    round(sum(case when date_diff('day', date(early.first_bill_created_dt), dt) < 30 then cast(pmnts.payment_amt_local as double) else null end), 2) as total_payments_30_days,
-    round(sum(case when date_diff('day', date(early.first_bill_created_dt), dt) < 60 then cast(pmnts.payment_amt_local as double) else null end), 2) as total_payments_60_days,
-    round(sum(case when date_diff('day', date(early.first_bill_created_dt), dt) < 90 then cast(pmnts.payment_amt_local as double) else null end), 2) as total_payments_90_days
-FROM (
-    SELECT
-        first_bill_created_dt as first_bill_created_dt, 
-        first_dt as first_dt, 
-        cast(accountno as varchar) as accountno,
-        cast(serviceno as varchar) as serviceno
-    FROM info_early_clients
-    ) early
-INNER JOIN (
-    SELECT
-        distinct cast(account_id as varchar) as accountno, 
-        date(dt) as dt, 
-        cast(payment_amt_local as double) as payment_amt_local
-    FROM "db-stage-prod-lf"."payments_cwp"
-    ) pmnts
-ON cast(pmnts.accountno as varchar) = cast(early.accountno as varchar)
-WHERE
-    date(pmnts.dt) between date(early.first_bill_created_dt) - interval '45' day and date(early.first_bill_created_dt) + interval '6' month
-GROUP BY early.serviceno, early.accountno, early.first_bill_created_dt
+    round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 30 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_30_days,
+    round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 60 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_60_days,
+    round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 90 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_90_days 
+FROM info_gross A
+INNER JOIN "db-stage-prod-lf"."payments_cwp" B
+     ON cast(A.accountno as varchar) = cast(B.account_id as varchar)
+WHERE  
+    date(B.dt) between date(A.first_bill_created_dt) - interval '45' day and date(A.first_bill_created_dt) + interval '6' month
+GROUP BY 1,2,3
 ),
 
---- Include info early payment
+
+early_payments as (
+SELECT
+    distinct A.serviceno as early_payment_flag
+FROM info_gross A
+INNER JOIN "db-stage-prod-lf"."payments_cwp" B
+     ON cast(A.accountno as varchar) = cast(B.account_id as varchar)
+WHERE  
+    -- date_trunc(date(B.dt)) between date(A.first_bill_created_dt) - interval '45' day and date(A.first_bill_created_dt) + interval '1' month
+    date_trunc('month', date(B.dt)) = (SELECT input_month FROM parameters)
+),
 
 gross_pagos as (
 SELECT
@@ -148,10 +120,12 @@ SELECT
 FROM info_gross A
 LEFT JOIN info_pagos B
     ON cast(A.accountno as varchar) = cast(B.accountno_pagos as varchar)
+LEFT JOIN early_payments C
+    ON cast(A.serviceno as varchar) = cast(C.early_payment_flag as varchar)
 ),
 
 --------------------------------------------------------------------------------
----------------------------- INVOLUNTARY CHURN AND NPN --------------------------
+------------------------------------- NPN ----------------------------------- 
 --------------------------------------------------------------------------------
 
 DRC_table AS (
@@ -164,15 +138,15 @@ GROUP BY act_acct_cd
 
 gross_pagos_npn as (
 SELECT
-    *, 
-    -- CASE 
-    --     WHEN pmnt_sell_month_ammnt = NULL THEN 0
-    --     ELSE pmnt_sell_month_ammnt
-    -- END AS Payed_Entry_Fee_ammnt,
-    -- CASE 
-    --     WHEN pmnt_sell_month_ammnt > 20 THEN 'Payed_over_20'
-    --     ELSE 'No_payed_over_20' 
-    -- END AS Payed_over_20_sell_month,
+    *,
+    CASE 
+        WHEN pmnt_sell_month_ammnt = NULL THEN 0
+        ELSE pmnt_sell_month_ammnt
+    END AS Payed_Entry_Fee_ammnt,
+    CASE 
+        WHEN pmnt_sell_month_ammnt > 20 THEN 'Payed_over_20'
+        ELSE 'No_payed_over_20' 
+    END AS Payed_over_20_in_sell_month,
     CASE 
         WHEN DATE_DIFF('day',sell_date,first_dt_user) < 5 THEN 'Cliente Existente'
         ELSE 'Cliente Nuevo'
@@ -204,11 +178,10 @@ SELECT
 FROM gross_pagos A
 LEFT JOIN drc_table  B
     ON A.accountno = B.accountno_drc
-    
 ),
 
 --------------------------------------------------------------------------------
----------------------------------- ACCOUNTS THAT SURVIVE AFTER X MONTHS --------------------------------
+---------------------------------- SURVIVING --------------------------------
 --------------------------------------------------------------------------------
 
 forward_months as (
@@ -216,11 +189,6 @@ SELECT
     distinct A.serviceno,
     A.accountno,
     date_trunc('month', date(A.dt)) as month_survival, 
-    -- A.dt, 
-    -- A.accountno,
-    -- A.serviceno,
-    -- B.accountno as invol_churn_flag, 
-    -- C.first_bill_created_dt, 
     C.sell_date, 
     C.province, 
     C.district, 
@@ -230,7 +198,10 @@ SELECT
     C.npn_30_flag,
     C.npn_60_flag,
     C.npn_90_flag, 
-    C.npn_flag
+    C.npn_flag, 
+    C.early_payment_flag, 
+    C.Payed_Entry_Fee_ammnt, 
+    C.Payed_over_20_in_sell_month
 FROM "db-analytics-prod"."tbl_postpaid_cwp" A
 RIGHT JOIN gross_pagos_npn C
     ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
@@ -388,68 +359,6 @@ LEFT JOIN invol_churn C
 ORDER BY A.serviceno
 )
 
--- churn_type as (
--- SELECT
---     distinct A.serviceno,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '0' month and surv_m0 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '0' month and surv_m0 is null then '2.Voluntario'
---     else null end as churntype_m0,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '1' month and surv_m0 = 1 and surv_m1 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '1' month and surv_m0 = 1 and surv_m1 is null then '2.Voluntario'
---     else null end as churntype_m1,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '2' month and surv_m1 = 1 and surv_m2 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '2' month and surv_m1 = 1 and surv_m2 is null then '2.Voluntario'
---     else null end as churntype_m2,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '3' month and surv_m2 = 1 and surv_m3 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '3' month and surv_m2 = 1 and surv_m3 is null then '2.Voluntario'
---     else null end as churntype_m3,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '4' month and surv_m3 = 1 and surv_m4 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '4' month and surv_m3 = 1 and surv_m4 is null then '2.Voluntario'
---     else null end as churntype_m4,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '5' month and surv_m4 = 1 and surv_m5 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '5' month and surv_m4 = 1 and surv_m5 is null then '2.Voluntario'
---     else null end as churntype_m5,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '6' month and surv_m5 = 1 and surv_m6 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '6' month and surv_m5 = 1 and surv_m6 is null then '2.Voluntario'
---     else null end as churntype_m6,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '7' month and surv_m6 = 1 and surv_m7 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '7' month and surv_m6 = 1 and surv_m7 is null then '2.Voluntario'
---     else null end as churntype_m7,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '8' month and surv_m7 = 1 and surv_m8 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '8' month and surv_m7 = 1 and surv_m8 is null then '2.Voluntario'
---     else null end as churntype_m8,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '9' month and surv_m8 = 1 and surv_m9 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '9' month and surv_m8 = 1 and surv_m9 is null then '2.Voluntario'
---     else null end as churntype_m9,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '10' month and surv_m9 = 1 and surv_m10 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '10' month and surv_m9 = 1 and surv_m10 is null then '2.Voluntario'
---     else null end as churntype_m10,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '11' month and surv_m10 = 1 and surv_m11 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '11' month and surv_m10 = 1 and surv_m11 is null then '2.Voluntario'
---     else null end as churntype_m11,
---     case 
---         when month_survival = (SELECT input_month FROM parameters) + interval '12' month and surv_m11 = 1 and surv_m12 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day) then '1.Involuntario'
---         when month_survival = (SELECT input_month FROM parameters) + interval '12' month and surv_m11 = 1 and surv_m12 is null then '2.Voluntario'
---     else null end as churntype_m12
-    
--- FROM forward_months A
--- LEFT JOIN survival B
---     ON A.serviceno = B.serviceno
--- ORDER BY A.serviceno
--- )
-
 , final_result as (
 SELECT
     distinct A.serviceno, 
@@ -463,28 +372,15 @@ SELECT
     A.npn_30_flag,
     A.npn_60_flag,
     A.npn_90_flag, 
-    A.npn_flag--,
-    -- B.*, 
+    A.npn_flag, 
+    A.early_payment_flag, 
+    A.Payed_Entry_Fee_ammnt, 
+    A.Payed_over_20_in_sell_month,
     surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12, 
-    -- C.*,
     churn_m0, churn_m1, churn_m2, churn_m3, churn_m4, churn_m5, churn_m6, churn_m7, churn_m8, churn_m9, churn_m10, churn_m11, churn_m12, 
-    -- D.*, 
     invol_m0, invol_m1, invol_m2, invol_m3, invol_m4, invol_m5, invol_m6, invol_m7, invol_m8, invol_m9, invol_m10, invol_m11, invol_m12, 
-    -- E.*
     vol_m0, vol_m1, vol_m2, vol_m3, vol_m4, vol_m5, vol_m6, vol_m7, vol_m8, vol_m9, vol_m10, vol_m11, vol_m12
-    -- first_value(churntype_m0) over (partition by C.serviceno order by churntype_m0 asc) as churntype_m0, 
-    -- first_value(churntype_m1) over (partition by C.serviceno order by churntype_m1 asc) as churntype_m1, 
-    -- first_value(churntype_m2) over (partition by C.serviceno order by churntype_m2 asc) as churntype_m2, 
-    -- first_value(churntype_m3) over (partition by C.serviceno order by churntype_m3 asc) as churntype_m3, 
-    -- first_value(churntype_m4) over (partition by C.serviceno order by churntype_m4 asc) as churntype_m4, 
-    -- first_value(churntype_m5) over (partition by C.serviceno order by churntype_m5 asc) as churntype_m5, 
-    -- first_value(churntype_m6) over (partition by C.serviceno order by churntype_m6 asc) as churntype_m6, 
-    -- first_value(churntype_m7) over (partition by C.serviceno order by churntype_m7 asc) as churntype_m7, 
-    -- first_value(churntype_m8) over (partition by C.serviceno order by churntype_m8 asc) as churntype_m8, 
-    -- first_value(churntype_m9) over (partition by C.serviceno order by churntype_m9 asc) as churntype_m9, 
-    -- first_value(churntype_m10) over (partition by C.serviceno order by churntype_m10 asc) as churntype_m10, 
-    -- first_value(churntype_m11) over (partition by C.serviceno order by churntype_m11 asc) as churntype_m11, 
-    -- first_value(churntype_m12) over (partition by C.serviceno order by churntype_m12 asc) as churntype_m12
+
 FROM forward_months A
 LEFT JOIN survival B
     ON A.serviceno = B.serviceno
@@ -501,15 +397,4 @@ LEFT JOIN invol_churn E
 SELECT 
     *
 FROM final_result
--- WHERE  cast(serviceno as varchar) in (SELECT cast(serviceno as varchar) FROM gross_pagos WHERE serviceno_pagos is null)
--- LIMIT 10
 
--- SELECT 
---     count(*), 
---     count(distinct serviceno)
--- FROM final_result
--- SELECT
---     count(distinct serviceno)
--- FROM gross_pagos
--- WHERE
---     serviceno_pagos is null
