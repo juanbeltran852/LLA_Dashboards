@@ -6,7 +6,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2023-05-01') as input_month, 
+    date('2023-01-01') as input_month, 
     date_trunc('month', date('2023-06-01')) as current_month
 ),
 
@@ -49,6 +49,7 @@ SELECT
     category as category, 
     first_value(province) over (partition by serviceno order by dt desc) as province, 
     first_value(district) over (partition by serviceno order by dt desc) as district,
+    first_value(date(concat(substr(startdate_serviceno,1,4),'-',substr(startdate_serviceno,6,2),'-',substr(startdate_serviceno, 9,2)))) over (partition by serviceno order by dt asc) as activation_date,
     date(dt) as dt
 FROM "db-analytics-prod"."tbl_postpaid_cwp"
 WHERE
@@ -73,6 +74,7 @@ SELECT
     B.category, 
     B.province, 
     B.district, 
+    B.activation_date,
     case when B.fi_bill_dt_m0 is null then B.first_dt_user else date(fi_bill_dt_m0) end as first_bill_created_dt
 FROM gross_adds A
 INNER JOIN useful_dna B
@@ -90,6 +92,7 @@ SELECT
     cast(A.accountno as varchar) as accountno_pagos, 
     A.first_bill_created_dt, 
     round(SUM(TRY_CAST(payment_amt_local AS DOUBLE)), 2) AS pmnt_sell_month_ammnt,
+    round(sum(case when date(B.dt) <= activation_date then TRY_CAST(payment_amt_local as double) else null end),2) as pmnt_activation_dt,
     round(sum(cast(payment_amt_local as double)), 2) as total_payments_in_3_months, 
     round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 30 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_30_days,
     round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 60 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_60_days,
@@ -103,16 +106,16 @@ GROUP BY 1,2,3
 ),
 
 
-early_payments as (
-SELECT
-    distinct A.serviceno as early_payment_flag
-FROM info_gross A
-INNER JOIN "db-stage-prod-lf"."payments_cwp" B
-     ON cast(A.accountno as varchar) = cast(B.account_id as varchar)
-WHERE  
-    -- date_trunc(date(B.dt)) between date(A.first_bill_created_dt) - interval '45' day and date(A.first_bill_created_dt) + interval '1' month
-    date_trunc('month', date(B.dt)) = (SELECT input_month FROM parameters)
-),
+-- early_payments as (
+-- SELECT
+--     distinct A.serviceno as early_payment_flag
+-- FROM info_gross A
+-- INNER JOIN "db-stage-prod-lf"."payments_cwp" B
+--      ON cast(A.accountno as varchar) = cast(B.account_id as varchar)
+-- WHERE  
+--     -- date_trunc(date(B.dt)) between date(A.first_bill_created_dt) - interval '45' day and date(A.first_bill_created_dt) + interval '1' month
+--     date_trunc('month', date(B.dt)) = (SELECT input_month FROM parameters)
+-- ),
 
 gross_pagos as (
 SELECT
@@ -120,8 +123,8 @@ SELECT
 FROM info_gross A
 LEFT JOIN info_pagos B
     ON cast(A.accountno as varchar) = cast(B.accountno_pagos as varchar)
-LEFT JOIN early_payments C
-    ON cast(A.serviceno as varchar) = cast(C.early_payment_flag as varchar)
+-- LEFT JOIN early_payments C
+    -- ON cast(A.serviceno as varchar) = cast(C.early_payment_flag as varchar)
 ),
 
 --------------------------------------------------------------------------------
@@ -144,9 +147,9 @@ SELECT
         ELSE pmnt_sell_month_ammnt
     END AS Payed_Entry_Fee_ammnt,
     CASE 
-        WHEN pmnt_sell_month_ammnt > 20 THEN 'Payed_over_20'
-        ELSE 'No_payed_over_20' 
-    END AS Payed_over_20_in_sell_month,
+        WHEN cast(pmnt_activation_dt as double) >= 20 THEN A.serviceno --- If the MRC changes this will need to be adjusted
+        ELSE null 
+    END AS early_payment_flag,
     CASE 
         WHEN DATE_DIFF('day',sell_date,first_dt_user) < 5 THEN 'Cliente Existente'
         ELSE 'Cliente Nuevo'
@@ -190,6 +193,7 @@ SELECT
     A.accountno,
     date_trunc('month', date(A.dt)) as month_survival, 
     C.sell_date, 
+    C.activation_date,
     C.province, 
     C.district, 
     C.procedencia, 
@@ -200,8 +204,7 @@ SELECT
     C.npn_90_flag, 
     C.npn_flag, 
     C.early_payment_flag, 
-    C.Payed_Entry_Fee_ammnt, 
-    C.Payed_over_20_in_sell_month
+    C.Payed_Entry_Fee_ammnt
 FROM "db-analytics-prod"."tbl_postpaid_cwp" A
 RIGHT JOIN gross_pagos_npn C
     ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
@@ -365,18 +368,20 @@ SELECT
     A.accountno, 
     date_trunc('month', date(A.sell_date)) as sell_month,
     A.sell_date, 
+    A.activation_date,
     A.province, 
     A.district, 
     A.procedencia, 
     A.sell_channel, 
     A.agent_acc_code, 
+    '' as mrc_plan,
     A.npn_30_flag,
     A.npn_60_flag,
     A.npn_90_flag, 
     A.npn_flag, 
-    A.early_payment_flag, 
+    A.early_payment_flag,
     A.Payed_Entry_Fee_ammnt, 
-    A.Payed_over_20_in_sell_month,
+    -- A.Payed_over_20_in_sell_month,
     surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12, 
     churn_m0, churn_m1, churn_m2, churn_m3, churn_m4, churn_m5, churn_m6, churn_m7, churn_m8, churn_m9, churn_m10, churn_m11, churn_m12, 
     invol_m0, invol_m1, invol_m2, invol_m3, invol_m4, invol_m5, invol_m6, invol_m7, invol_m8, invol_m9, invol_m10, invol_m11, invol_m12, 
@@ -398,6 +403,5 @@ LEFT JOIN invol_churn E
 SELECT 
     *
 FROM final_result
-
 
 -- LIMIT 10
