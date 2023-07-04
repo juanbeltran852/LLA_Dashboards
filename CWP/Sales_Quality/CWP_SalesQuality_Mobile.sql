@@ -22,7 +22,8 @@ SELECT
     gross.channel_resumen AS sell_channel,
     gross.procedencia AS procedencia,
     gross.agent_acc_code AS agent_acc_code,
-    gross.plan_name AS plan_name
+    gross.plan_name AS plan_name, 
+    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag
 FROM "db-stage-prod"."gross_ads_movil_b2c_newversion" gross
 WHERE
     date_trunc('month', DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) = (SELECT input_month FROM parameters)
@@ -75,6 +76,7 @@ SELECT
     B.province, 
     B.district, 
     B.activation_date,
+    A.handsets_flag,
     case when B.fi_bill_dt_m0 is null then B.first_dt_user else date(fi_bill_dt_m0) end as first_bill_created_dt
 FROM gross_adds A
 INNER JOIN useful_dna B
@@ -199,6 +201,7 @@ SELECT
     C.procedencia, 
     C.sell_channel, 
     C.agent_acc_code, 
+    C.handsets_flag,
     C.npn_30_flag,
     C.npn_60_flag,
     C.npn_90_flag, 
@@ -374,6 +377,7 @@ SELECT
     A.procedencia, 
     A.sell_channel, 
     A.agent_acc_code, 
+    A.handsets_flag,
     '' as mrc_plan,
     A.npn_30_flag,
     A.npn_60_flag,
