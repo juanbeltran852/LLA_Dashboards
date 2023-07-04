@@ -152,23 +152,23 @@ SELECT
         ELSE 'Cliente Nuevo'
     END AS Cliente_Existente,
     CASE   
-        WHEN total_payments_30_days IS NULL THEN A.accountno
-        WHEN total_payments_30_days < total_mrc_d THEN A.accountno 
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 30 and total_payments_30_days IS NULL THEN A.accountno
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 30 and total_payments_30_days < total_mrc_d THEN A.accountno 
         ELSE NULL 
     END AS npn_30_flag,
     CASE   
-        WHEN total_payments_60_days IS NULL THEN A.accountno
-        WHEN total_payments_60_days < total_mrc_d THEN A.accountno 
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 60 and total_payments_60_days IS NULL THEN A.accountno
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 60 and total_payments_60_days < total_mrc_d THEN A.accountno 
         ELSE NULL 
     END AS npn_60_flag,
     CASE   
-        WHEN total_payments_90_days IS NULL THEN A.accountno
-        WHEN total_payments_90_days < total_mrc_d THEN A.accountno 
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 90 and total_payments_90_days IS NULL THEN A.accountno
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 90 and total_payments_90_days < total_mrc_d THEN A.accountno 
         ELSE NULL 
     END AS npn_90_flag,
     CASE   
-        WHEN total_payments_in_3_months IS NULL THEN A.accountno
-        WHEN total_payments_in_3_months < total_mrc_d THEN A.accountno 
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 90 and total_payments_in_3_months IS NULL THEN A.accountno
+        WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 90 and total_payments_in_3_months < total_mrc_d THEN A.accountno 
         ELSE NULL 
     END AS npn_flag,
     CASE   
@@ -363,6 +363,7 @@ ORDER BY A.serviceno
 SELECT
     distinct A.serviceno, 
     A.accountno, 
+    date_trunc('month', date(A.sell_date)) as sell_month,
     A.sell_date, 
     A.province, 
     A.district, 
@@ -398,3 +399,5 @@ SELECT
     *
 FROM final_result
 
+
+-- LIMIT 10
