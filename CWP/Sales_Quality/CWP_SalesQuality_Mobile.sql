@@ -23,7 +23,8 @@ SELECT
     gross.procedencia AS procedencia,
     gross.agent_acc_code AS agent_acc_code,
     gross.plan_name AS plan_name, 
-    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag
+    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag, 
+    gross.plan_id as plan_code
 FROM "db-stage-prod"."gross_ads_movil_b2c_newversion" gross
 WHERE
     date_trunc('month', DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) = (SELECT input_month FROM parameters)
@@ -41,6 +42,7 @@ SELECT
     -- billableaccountno as accountno,
     distinct serviceno as serviceno_dna,
     accountno as accountno_dna,
+    customerdesc as client_name,
     first_value(date(dt)) over (partition by trim(cast(billableaccountno as varchar)) order by dt asc) as first_dt_user, --- Can be used as installation_date?
     date(fi_bill_dt_m0) as fi_bill_dt_m0,
     date(fi_bill_due_dt_m0) as fi_bill_due_dt_m0,
@@ -51,6 +53,7 @@ SELECT
     first_value(province) over (partition by serviceno order by dt desc) as province, 
     first_value(district) over (partition by serviceno order by dt desc) as district,
     first_value(date(concat(substr(startdate_serviceno,1,4),'-',substr(startdate_serviceno,6,2),'-',substr(startdate_serviceno, 9,2)))) over (partition by serviceno order by dt asc) as activation_date,
+    first_value(salesmanname) over (partition by serviceno order by dt asc) as sales_agent_name,
     date(dt) as dt
 FROM "db-analytics-prod"."tbl_postpaid_cwp"
 WHERE
@@ -69,7 +72,8 @@ SELECT
     first_value(A.sell_channel) over (partition by A.serviceno order by A.sell_channel) as sell_channel,
     first_value(A.procedencia) over (partition by A.serviceno order by A.procedencia) as procedencia,
     first_value(A.agent_acc_code) over (partition by A.serviceno order by A.agent_acc_code) as agent_acc_code,
-    A.plan_name, 
+    B.sales_agent_name,
+    B.client_name,
     B.first_dt_user, 
     B.total_mrc_d,
     B.category, 
@@ -77,6 +81,8 @@ SELECT
     B.district, 
     B.activation_date,
     A.handsets_flag,
+    A.plan_code, 
+    A.plan_name,
     case when B.fi_bill_dt_m0 is null then B.first_dt_user else date(fi_bill_dt_m0) end as first_bill_created_dt
 FROM gross_adds A
 INNER JOIN useful_dna B
@@ -98,7 +104,7 @@ SELECT
     round(sum(cast(payment_amt_local as double)), 2) as total_payments_in_3_months, 
     round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 30 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_30_days,
     round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 60 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_60_days,
-    round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 90 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_90_days 
+    round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 90 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_90_days
 FROM info_gross A
 INNER JOIN "db-stage-prod-lf"."payments_cwp" B
      ON cast(A.accountno as varchar) = cast(B.account_id as varchar)
@@ -196,12 +202,16 @@ SELECT
     date_trunc('month', date(A.dt)) as month_survival, 
     C.sell_date, 
     C.activation_date,
+    C.client_name,
     C.province, 
     C.district, 
     C.procedencia, 
     C.sell_channel, 
     C.agent_acc_code, 
+    C.sales_agent_name,
     C.handsets_flag,
+    C.plan_code,
+    C.plan_name,
     C.total_mrc_d,
     C.npn_30_flag,
     C.npn_60_flag,
@@ -446,12 +456,21 @@ SELECT
     date_trunc('month', date(A.sell_date)) as sell_month,
     A.sell_date, 
     A.activation_date,
-    A.province, 
+    A.client_name,
+    'Wireless' as techflag,
+    '' as socioeconomic_seg,
+    '' as movement_flag,
+    'R' as customer_type_code, --- Should something else be included instead of this?
+    'Residencial' as customer_type_desc, --- Should something else be included instead of this?
+    -- A.province, 
     A.district, 
     A.procedencia, 
     A.sell_channel, 
     A.agent_acc_code, 
+    A.sales_agent_name,
     A.handsets_flag,
+    A.plan_code,
+    A.plan_name,
     '' as mrc_plan,
     A.npn_30_flag,
     A.npn_60_flag,
@@ -466,6 +485,15 @@ SELECT
     vol_m0, vol_m1, vol_m2, vol_m3, vol_m4, vol_m5, vol_m6, vol_m7, vol_m8, vol_m9, vol_m10, vol_m11, vol_m12, 
     mrc_m0, mrc_m1, mrc_m2, mrc_m3, mrc_m4, mrc_m5, mrc_m6, mrc_m7, mrc_m8, mrc_m9, mrc_m10, mrc_m11, mrc_m12, 
     
+    churn_m6 as churners_6_month, 
+    '' as churners_90_1st_bill, 
+    '' as churners_90_2nd_bill, 
+    '' as churners_90_3rd_bill, 
+    '' as rejoiners_1st_bill, 
+    '' as rejoiners_2nd_bill, 
+    '' as rejoiners_3rd_bill, 
+    vol_m6 as voluntary_churners_6_month,
+    
     row_number() over (partition by A.serviceno order by sell_date asc) as r_nm --- Eliminating residual duplicates
 
 FROM forward_months A
@@ -473,8 +501,6 @@ LEFT JOIN survival B
     ON A.serviceno = B.serviceno
 LEFT JOIN churn C
     ON A.serviceno = C.serviceno
--- LEFT JOIN churn_type D
-    -- ON A.serviceno = D.serviceno
 LEFT JOIN vol_churn D
     ON A.serviceno = D.serviceno
 LEFT JOIN invol_churn E
@@ -488,5 +514,5 @@ SELECT
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- FROM mrc_evol
-
--- LIMIT 10
+-- ORDER BY serviceno
+-- LIMIT 500
