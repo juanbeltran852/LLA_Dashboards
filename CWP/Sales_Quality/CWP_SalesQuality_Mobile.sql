@@ -1,43 +1,51 @@
 --------------------------------------------------------------------------------
 -------------------------- CWP - SALES QUALITY MOBILE --------------------------
 --------------------------------------------------------------------------------
+--- Commented in 06/07/2023 (d/m/y).
 
 WITH
 
 parameters as (
 SELECT 
-    date('2022-05-01') as input_month, 
-    date_trunc('month', date('2023-06-01')) as current_month
+    date('2022-05-01') as input_month,  --- The month we want to obtain the results for
+    date_trunc('month', date('2023-06-01')) as current_month --- The last month of available data
 ),
 
 --------------------------------------------------------------------------------
 ---------------------------------- Gross Adds ------------------------------
 --------------------------------------------------------------------------------
 
-gross_adds AS ( --Tabla Ventas que sale de gross adds
+---
+--- The gross adds table is the most important input, it allows us to identify the sales of the month
+--- and take the relevant information
+---
+
+gross_adds AS (
 SELECT 
-    TRIM(CAST(gross.account AS VARCHAR)) AS accountno, ------- Arround 1k of records do have their 'account' column in null
-    gross.service AS serviceno,
-    date(DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) AS sell_date, --Format example 05/27/2023
-    gross.channel_resumen AS sell_channel,
-    gross.procedencia AS procedencia,
+    TRIM(CAST(gross.account AS VARCHAR)) AS accountno, ------- Account_id
+    gross.service AS serviceno, ------ Each service number is a different phone number in Panama. We build the detail for each phone number.
+    date(DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) AS sell_date, -- Target format example: 05/27/2023
+    gross.channel_resumen AS sell_channel, 
+    gross.procedencia AS procedencia, --- A phone number can come as a completely new number, as a previous prepaid customer or as a number brought from another operator.
     activado_en as activation_channel,
-    case when lower(substr(trim(gross.agent_acc_code), 1, position('-' in gross.agent_acc_code) - 1)) like '%none%' then null else substr(upper(trim(gross.agent_acc_code)), 1, position('-' in gross.agent_acc_code) - 1) end AS agent_acc_code,
+    case when lower(substr(trim(gross.agent_acc_code), 1, position('-' in gross.agent_acc_code) - 1)) like '%none%' then null else substr(upper(trim(gross.agent_acc_code)), 1, position('-' in gross.agent_acc_code) - 1) end AS agent_acc_code, --- The column shows something like 'ABC100 - John Doe' so we separate the code and the name of the sales agent. Also, there are various records like 'NONE - NONE' so they are replaced with null values.
     case when lower(trim(substr(gross.agent_acc_code, position('-' in gross.agent_acc_code) + 2, length(gross.agent_acc_code)))) like '%none%' then null else trim(substr(upper(gross.agent_acc_code), position('-' in gross.agent_acc_code) + 2, length(gross.agent_acc_code))) end as sales_agent_name,
     gross.plan_name AS plan_name, 
-    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag, 
+    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag, --- This flags customers when they are given a new cellphone with their new phone number.
     gross.plan_id as plan_code
 FROM "db-stage-prod"."gross_ads_movil_b2c_newversion" gross
 WHERE
     date_trunc('month', DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) = (SELECT input_month FROM parameters)
--- LIMIT 1000
 ), 
-
---- Info early clients
 
 --------------------------------------------------------------------------------
 ---------------------------------- Postpaid DNA -------------------------------
 --------------------------------------------------------------------------------
+
+---
+--- From the DNA we extract more relevant information that couldn't be found in the 
+--- gross adds table.
+---
 
 useful_dna as (
 SELECT
@@ -45,26 +53,30 @@ SELECT
     distinct serviceno as serviceno_dna,
     accountno as accountno_dna,
     upper(trim(customerdesc)) as client_name,
-    first_value(date(dt)) over (partition by trim(cast(billableaccountno as varchar)) order by dt asc) as first_dt_user, --- Can be used as installation_date?
-    date(fi_bill_dt_m0) as fi_bill_dt_m0,
-    date(fi_bill_due_dt_m0) as fi_bill_due_dt_m0,
+    first_value(date(dt)) over (partition by trim(cast(billableaccountno as varchar)) order by dt asc) as first_dt_user, --- First appearance in the DNA of the sale.
+    date(fi_bill_dt_m0) as fi_bill_dt_m0, --- Issuance date of the bill of this month (first bill)
+    date(fi_bill_due_dt_m0) as fi_bill_due_dt_m0, --- Limit date of the bill of this month (first bill)
     cast(total_mrc_d as double) as total_mrc_d,
     cast(tot_inv_mo as double) AS tot_inv_mo,
     account_status as account_status,
     category as category, 
-    first_value(province) over (partition by serviceno order by dt desc) as province, 
+    first_value(province) over (partition by serviceno order by dt desc) as province,
     first_value(district) over (partition by serviceno order by dt desc) as district,
-    first_value(date(concat(substr(startdate_serviceno,1,4),'-',substr(startdate_serviceno,6,2),'-',substr(startdate_serviceno, 9,2)))) over (partition by serviceno order by dt asc) as activation_date,
-    -- first_value(salesmanname) over (partition by serviceno order by dt asc) as sales_agent_name,
+    first_value(date(concat(substr(startdate_serviceno,1,4),'-',substr(startdate_serviceno,6,2),'-',substr(startdate_serviceno, 9,2)))) over (partition by serviceno order by dt asc) as activation_date, --- Some adjustments were required due to the base format of the column
+    -- first_value(salesmanname) over (partition by serviceno order by dt asc) as sales_agent_name, --- An alternative to obtain the sales agent. It may not match with the name displayed in the gross adds table.
     date(dt) as dt
 FROM "db-analytics-prod"."tbl_postpaid_cwp"
 WHERE
     account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
     and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
-    and date_trunc('month', date(dt)) = (SELECT input_month FROM parameters) -------- Why should I consider a time range between the input month and 4 months ahead?
-    -- and total_mrc_d not in ('CORP 900')
-    -- and tot_inv_mo not in ('CORP 900')
+    and date_trunc('month', date(dt)) = (SELECT input_month FROM parameters)
+    -- and total_mrc_d not in ('CORP 900') --- October 2022 data issue
+    -- and tot_inv_mo not in ('CORP 900') --- October 2022 data issue
 ),
+
+---
+--- Joining the dna info and the gross adds table info together.
+---
 
 info_gross as (
 SELECT
@@ -88,14 +100,18 @@ SELECT
     A.plan_name,
     case when B.fi_bill_dt_m0 is null then B.first_dt_user else date(fi_bill_dt_m0) end as first_bill_created_dt
 FROM gross_adds A
-INNER JOIN useful_dna B
+INNER JOIN useful_dna B --- We keep just the commond records in both tables
     ON cast(A.serviceno as varchar) = cast(B.serviceno_dna as varchar)
--- WHERE date(B.dt) = (SELECT input_month FROM parameters)
 ),
 
 --------------------------------------------------------------------------------
 ------------------------------------- PAYMENTS -----------------------------------
 --------------------------------------------------------------------------------
+
+---
+--- We are interested in the payments table because we want to identify NPN.
+--- Additionally, we want to flag customers with early payments.
+---
 
 info_pagos as (
 SELECT
@@ -103,7 +119,7 @@ SELECT
     cast(A.accountno as varchar) as accountno_pagos, 
     A.first_bill_created_dt, 
     round(SUM(TRY_CAST(payment_amt_local AS DOUBLE)), 2) AS pmnt_sell_month_ammnt,
-    round(sum(case when date(B.dt) <= activation_date then TRY_CAST(payment_amt_local as double) else null end),2) as pmnt_activation_dt,
+    round(sum(case when date(B.dt) <= activation_date then TRY_CAST(payment_amt_local as double) else null end),2) as pmnt_activation_dt, --- Current definition for early payments: Users that, at their activation date, have already paid at least USD$20.
     round(sum(cast(payment_amt_local as double)), 2) as total_payments_in_3_months, 
     round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 30 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_30_days,
     round(sum(case when date_diff('day', date(A.first_bill_created_dt), date(B.dt)) < 60 then cast(B.payment_amt_local as double) else null end), 2) as total_payments_60_days,
@@ -116,17 +132,9 @@ WHERE
 GROUP BY 1,2,3
 ),
 
-
--- early_payments as (
--- SELECT
---     distinct A.serviceno as early_payment_flag
--- FROM info_gross A
--- INNER JOIN "db-stage-prod-lf"."payments_cwp" B
---      ON cast(A.accountno as varchar) = cast(B.account_id as varchar)
--- WHERE  
---     -- date_trunc(date(B.dt)) between date(A.first_bill_created_dt) - interval '45' day and date(A.first_bill_created_dt) + interval '1' month
---     date_trunc('month', date(B.dt)) = (SELECT input_month FROM parameters)
--- ),
+---
+--- Joining the info together
+---
 
 gross_pagos as (
 SELECT
@@ -141,6 +149,10 @@ LEFT JOIN info_pagos B
 --------------------------------------------------------------------------------
 ------------------------------------- NPN ----------------------------------- 
 --------------------------------------------------------------------------------
+
+---
+--- In the derecognition table we can identify involuntary churners
+---
 
 DRC_table AS (
 SELECT 
@@ -158,7 +170,7 @@ SELECT
         ELSE pmnt_sell_month_ammnt
     END AS Payed_Entry_Fee_ammnt,
     CASE 
-        WHEN cast(pmnt_activation_dt as double) >= 20 THEN A.serviceno --- If the MRC changes this will need to be adjusted
+        WHEN cast(pmnt_activation_dt as double) >= 20 THEN A.serviceno --- Here we flag the early payments cosidering if the user paid at least USD$20 before their activation date.
         ELSE null 
     END AS early_payment_flag,
     CASE 
@@ -188,21 +200,26 @@ SELECT
     CASE   
         WHEN first_drc_date IS NULL OR B.accountno_drc IS NULL THEN 'No DRC'
         ELSE 'DRC' 
-    END AS drc_flag
+    END AS drc_flag --- Flag used in the queries send by the OpCo. We do not use this column anymore.
 FROM gross_pagos A
 LEFT JOIN drc_table  B
     ON A.accountno = B.accountno_drc
 ),
 
 --------------------------------------------------------------------------------
----------------------------------- SURVIVAL --------------------------------
+---------------------------------- SURVIVAL -----------------------------------
 --------------------------------------------------------------------------------
+
+--- Now, we are going to track the perfomance of the different phone numbers identified as sales
+--- in the input month. In particular, we are going to check if the users churned or not in the next 12 months.
+--- If we do not have information for the next 12 months, the code will give you results according to the current_month
+--- parameter.
 
 forward_months as (
 SELECT
     distinct A.serviceno,
     A.accountno,
-    date_trunc('month', date(A.dt)) as month_survival, 
+    date_trunc('month', date(A.dt)) as month_survival, --- We'll use this column to track each of the relevant months.
     C.sell_date, 
     C.activation_date,
     C.client_name,
@@ -230,8 +247,15 @@ RIGHT JOIN gross_pagos_npn C
 WHERE
     A.account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
     and A.category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
-    and date(dt) between (select input_month from parameters) and (select input_month from parameters) + interval '13' month
+    and date(dt) between (select input_month from parameters) and (select input_month from parameters) + interval '13' month --- We take 13  months ahead in case we need information of the next month to check anything in particular.
 ),
+
+---
+--- In the survival subquery we assign, for each month, a 1 in case these two conditions are met (both of them are required): 
+--- 1. The service number can still be found in the last day of the month Postpaid DNA.
+--- 2. The account number cannot be identified as an involuntary churner of the month. We can check either the DRC file or the accounts with overdue > 90 in Postpaid Campaigns table. At the moment, we are focused in the second source.
+--- If these conditions couldn't be met, we can conclude that users didn't survive in the respective month.
+---
 
 survival as (
 SELECT
@@ -241,11 +265,11 @@ accountno,
 
 max(
     case when 
-        (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
+        (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) --- Here we are making sure that we are limited by the desired date.
         and month_survival = (SELECT input_month FROM parameters) + interval '0' month 
         and cast(serviceno as varchar) in (SELECT serviceno FROM "db-analytics-prod"."tbl_postpaid_cwp" WHERE account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS') and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees') and date(dt) = (SELECT input_month FROM parameters) + interval '1' month)  
-        -- and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 1 else null end) as surv_M0,
-        and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."b2c_movil_collections_polaris" WHERE date(dt) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day and "dias_de_atraso" > 90)
+        -- and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 1 else null end) as surv_M0, --- DRC check for discarting involuntary churner
+        and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."b2c_movil_collections_polaris" WHERE date(dt) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day and "dias_de_atraso" > 90) --- Polaris Campaigns check for discarting involuntary,
         then 1 else null end) as surv_m0,
 max(case when 
     (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
@@ -351,6 +375,11 @@ group by 1, 2
 ---------------------------------- CHURN --------------------------------
 --------------------------------------------------------------------------------
 
+---
+--- Now, we are going to build the opposite to the survival waterfall. This is assigning 
+--- a 1 in each month that the account couldn't be clasified as an active one.
+---
+
 churn as (
 SELECT
     distinct B.serviceno, 
@@ -387,17 +416,33 @@ LEFT JOIN survival B
 -- GROUP BY 1
 ), 
 
+---
+--- If the user was active in a previous month but did churn in the one we are checking, we identify the churntype. Thus, 
+--- the churntype will not appear each month since the account is not active but only in the first month in which we put the churn flag.
+--- We first check involuntary churn and then voluntary churn (as a complement).
+--- Involuntary: We check if the account can be found in the DRC table or do have an overdue > 90 in the Postpaid Campaigns table cannot be found in the last day of the month in the Postpaid DNA.
+--- Voluntary: We check if the account cannot be found in the last day of the month in the Postpaid DNA.
+--- Thus, if a churned account cannot be associated to involuntary churn, it will be clasified as a voluntary churner.
+---
+
 churn_type as (
 SELECT
     distinct A.serviceno,
     case 
         -- when month_survival = (SELECT input_month FROM parameters) + interval '0' month and surv_m0 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) then 'Involuntario'
-        when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) and month_survival = (SELECT input_month FROM parameters) + interval '0' month and churn_m0 = 1 /*surv_m0 is null*/ and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."b2c_movil_collections_polaris" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '1' month - interval '1' day and "dias_de_atraso" > 90) then 'Involuntario'
+        when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
+            and month_survival = (SELECT input_month FROM parameters) + interval '0' month 
+            and churn_m0 = 1 /*surv_m0 is null*/
+            and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."b2c_movil_collections_polaris" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '1' month - interval '1' day and "dias_de_atraso" > 90) then 'Involuntario'
         when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) and month_survival = (SELECT input_month FROM parameters) + interval '0' month and churn_m1 = 1 then 'Voluntario'
     else null end as churntype_m0,
     case 
         -- when month_survival = (SELECT input_month FROM parameters) + interval '1' month and surv_m0 = 1 and surv_m1 is null and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day) then 'Involuntario'
-        when (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) and month_survival = (SELECT input_month FROM parameters) + interval '1' month and churn_m0 is null and churn_m1 = 1 /*surv_m0 = 1 and surv_m1 is null*/ and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."b2c_movil_collections_polaris" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '2' month - interval '1' day and "dias_de_atraso" > 90) then 'Involuntario'
+        when 
+            (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
+            and month_survival = (SELECT input_month FROM parameters) + interval '1' month 
+            and churn_m0 is null and churn_m1 = 1 /*surv_m0 = 1 and surv_m1 is null*/  --- Here we are checking if this is the first churn month of the account.
+            and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."b2c_movil_collections_polaris" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '2' month - interval '1' day and "dias_de_atraso" > 90) then 'Involuntario'
         when (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) and month_survival = (SELECT input_month FROM parameters) + interval '1' month and surv_m0 = 1 and surv_m1 is null then 'Voluntario'
     else null end as churntype_m1,
     case 
@@ -465,8 +510,14 @@ ORDER BY A.serviceno
 ),
 
 --------------------------------------------------------------------------------
----------------------------------- INVOLUNTARY CHURN ---------------------------
+---------------------------- INVOLUNTARY AND VOLUNTARY CHURN ---------------------
 --------------------------------------------------------------------------------
+
+---
+--- In this section 2 different waterfalls were built, one for involuntary churn and
+--- the other for voluntary churn. Although they were not useful for the DNA, they might be
+--- useful for other purposes.
+---
 
 -- invol_churn as (
 -- SELECT
@@ -570,10 +621,6 @@ ORDER BY A.serviceno
 -- ORDER BY A.serviceno
 -- ),
 
---------------------------------------------------------------------------------
----------------------------------- VOLUNTARY CHURN ---------------------------
---------------------------------------------------------------------------------
-
 -- vol_churn as (
 -- SELECT 
 --     distinct A.serviceno,
@@ -616,6 +663,11 @@ ORDER BY A.serviceno
 --------------------------------------------------------------------------------
 ---------------------------------- ARPU (ARPC): MRC ---------------------------
 --------------------------------------------------------------------------------
+
+---
+--- Now, we display the MRC faced by each user in the different months of analysis.
+--- If an accounts is not active anymore, a null value will be displayed.
+---
 
 forward_months_mrc as (
 SELECT
@@ -674,6 +726,10 @@ GROUP BY 1
 ---------------------------------- FINAL RESULT ---------------------------
 --------------------------------------------------------------------------------
 
+--- Now we join all the information together and sort the final table.
+--- Additionally, some columns needed for matching with the Fixed Sales Quality table
+--- structure are added.
+
 , final_result as (
 SELECT
     distinct A.serviceno, 
@@ -685,9 +741,9 @@ SELECT
     'Wireless' as techflag,
     '' as socioeconomic_seg,
     '' as movement_flag,
-    'R' as customer_type_code, --- Should something else be included instead of this?
-    'Residencial' as customer_type_desc, --- Should something else be included instead of this?
-    -- A.province, 
+    'R' as customer_type_code,
+    'Residencial' as customer_type_desc,
+    -- A.province, --- Omitted beacuse the geographical hierarchy is being implemented directly in the dashboard.
     A.district, 
     A.procedencia, 
     A.sell_channel, 
@@ -716,7 +772,7 @@ SELECT
     mrc_m0, mrc_m1, mrc_m2, mrc_m3, mrc_m4, mrc_m5, mrc_m6, mrc_m7, mrc_m8, mrc_m9, mrc_m10, mrc_m11, mrc_m12, 
     
     churn_m6 as churners_6_month, 
-    '' as churners_90_1st_bill, 
+    '' as churners_90_1st_bill, --- We do not have a realiable column to get the issuance dt of the bills of the previous months.
     '' as churners_90_2nd_bill, 
     '' as churners_90_3rd_bill, 
     '' as rejoiners_1st_bill, 
@@ -724,7 +780,7 @@ SELECT
     '' as rejoiners_3rd_bill, 
     case when churn_m6 is not null and churntype_m6 = 'Voluntario' then 1 else null end as voluntary_churners_6_month,
     
-    row_number() over (partition by A.serviceno order by sell_date asc) as r_nm --- Eliminating residual duplicates
+    row_number() over (partition by A.serviceno order by sell_date asc) as r_nm --- For eliminating residual duplicates
 
 FROM forward_months A
 LEFT JOIN survival B
@@ -745,6 +801,6 @@ SELECT
     *
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
--- FROM mrc_evol
+
 -- ORDER BY serviceno
 -- LIMIT 10
