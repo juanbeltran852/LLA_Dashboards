@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2023-01-01') as input_month,  --- The month we want to obtain the results for
+    date('2023-05-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-06-01')) as current_month --- The last month of available data
 ),
 
@@ -753,7 +753,12 @@ SELECT
     A.handsets_flag,
     A.plan_code,
     A.plan_name,
-    '' as mrc_plan,
+    case 
+        when A.total_mrc_d < 23 then '<23'
+        when A.total_mrc_d >= 23 and A.total_mrc_d < 28 then '[23,28)'
+        when A.total_mrc_d >= 28 and A.total_mrc_d < 32 then '[28,32)'
+        when A.total_mrc_d >= 32 then '>=32'
+    end as mrc_plan,
     A.npn_30_flag,
     A.npn_60_flag,
     A.npn_90_flag, 
@@ -801,6 +806,7 @@ SELECT
     *
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
+GROUP BY 1
 
 -- ORDER BY serviceno
 -- LIMIT 10
