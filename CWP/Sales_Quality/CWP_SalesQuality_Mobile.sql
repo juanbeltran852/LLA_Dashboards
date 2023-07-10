@@ -70,8 +70,6 @@ WHERE
     account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
     and category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
     and date_trunc('month', date(dt)) = (SELECT input_month FROM parameters)
-    -- and total_mrc_d not in ('CORP 900') --- October 2022 data issue
-    -- and tot_inv_mo not in ('CORP 900') --- October 2022 data issue
 ),
 
 ---
