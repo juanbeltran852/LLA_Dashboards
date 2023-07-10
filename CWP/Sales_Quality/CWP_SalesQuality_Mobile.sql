@@ -8,7 +8,7 @@ WITH
 parameters as (
 SELECT 
     date('2023-05-01') as input_month,  --- The month we want to obtain the results for
-    date_trunc('month', date('2023-06-01')) as current_month --- The last month of available data
+    date_trunc('month', date('2022-10-01')) as current_month --- The last month of available data
 ),
 
 --------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ SELECT
     date(fi_bill_dt_m0) as fi_bill_dt_m0, --- Issuance date of the bill of this month (first bill)
     date(fi_bill_due_dt_m0) as fi_bill_due_dt_m0, --- Limit date of the bill of this month (first bill)
     cast(total_mrc_d as double) as total_mrc_d,
-    cast(tot_inv_mo as double) AS tot_inv_mo,
+    cast((case when tot_inv_mo = 'CORP 900' then null else tot_inv_mo end) as double) AS tot_inv_mo,
     account_status as account_status,
     category as category, 
     first_value(province) over (partition by serviceno order by dt desc) as province,
@@ -806,7 +806,6 @@ SELECT
     *
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
-GROUP BY 1
 
 -- ORDER BY serviceno
 -- LIMIT 10
