@@ -1,6 +1,7 @@
 WITH
 
-parameters as (SELECT date('2023-05-01') as input_month) ---- Must be the first day of the month.
+parameters as (SELECT date('2023-05-01') as input_month) ---- Must be the first day of the month
+--- Old tables only have monthly information.
 
 -------------------------------------------------------------------------------
 ---------------------------------- MSTR TABLE ---------------------------------
@@ -48,8 +49,8 @@ WHERE
 -- FROM "lcpr.stage.dev"."tbl_pstpd_cust_cxl_incr_data"
 -- WHERE
 --     date(dt) = (SELECT input_month FROM parameters)
---     and acct_type_cd = 'I'
---     and rgn_nm <> 'VI'
+--     -- and acct_type_cd = 'I'
+--     -- and rgn_nm <> 'VI'
 --     /* Unvalid disco reasons */
 --     -- and lower(acct_sts_rsn_desc) not like '%contract%accepted%' and lower(acct_sts_rsn_desc) not like '%portin%' and lower(acct_sts_rsn_desc) not like '%ctn%activation%' and lower(acct_sts_rsn_desc) not like '%per%cust%req%' and lower(acct_sts_rsn_desc) not like '%reduced%rate%suspend%' and lower(acct_sts_rsn_desc) not like '%""%' and lower(lst_susp_rsn_desc) not like '%""%'
 --     /* Check for involuntary */
@@ -67,12 +68,12 @@ WHERE
 -- ON A.subscription_id = B.subscription_id
 -- WHERE
 --     date(dt) = (SELECT input_month FROM parameters)
---     and acct_type_cd = 'I'
---     and ba_region_name <> 'VI'
+--     -- and acct_type_cd = 'I'
+--     -- and ba_region_name <> 'VI'
 --     /* Unvalid disco reasons */
---     and lower(sts_rsn_desc) not like '%contract%accepted%' and lower(sts_rsn_desc) not like '%portin%' and lower(sts_rsn_desc) not like '%ctn%activation%' and lower(sts_rsn_desc) not like '%per%cust%req%' and lower(sts_rsn_desc) not like '%reduced%rate%suspend%' and lower(sts_rsn_desc) not like '%""%' and lower(lst_susp_rsn_desc) not like '%""%'
+--     -- and lower(sts_rsn_desc) not like '%contract%accepted%' and lower(sts_rsn_desc) not like '%portin%' and lower(sts_rsn_desc) not like '%ctn%activation%' and lower(sts_rsn_desc) not like '%per%cust%req%' and lower(sts_rsn_desc) not like '%reduced%rate%suspend%' and lower(sts_rsn_desc) not like '%""%' and lower(lst_susp_rsn_desc) not like '%""%'
 --     /* Check for involuntary */
---     and (lower(sts_rsn_desc) LIKE '%no%pay%' or lower(sts_rsn_desc) LIKE '%no%use%' or lower(sts_rsn_desc) LIKE '%fraud%' or lower(sts_rsn_desc) LIKE '%off%net%' or lower(sts_rsn_desc) LIKE '%pay%def%' or lower(sts_rsn_desc) LIKE '%lost%equip%' or lower(sts_rsn_desc) LIKE '%tele%conv%' or lower(sts_rsn_desc) LIKE '%cont%acce%req%' or lower(sts_rsn_desc) LIKE '%proce%' or lower(lst_susp_rsn_desc) LIKE '%no%pay%' or lower(lst_susp_rsn_desc) LIKE '%no%use%' or lower(lst_susp_rsn_desc) LIKE '%fraud%' or lower(lst_susp_rsn_desc) LIKE '%off%net%' or lower(lst_susp_rsn_desc) LIKE '%pay%def%' or lower(lst_susp_rsn_desc) LIKE '%lost%equip%' or lower(lst_susp_rsn_desc) LIKE '%tele%conv%' or lower(lst_susp_rsn_desc) LIKE '%proce%')
+--     -- and (lower(sts_rsn_desc) LIKE '%no%pay%' or lower(sts_rsn_desc) LIKE '%no%use%' or lower(sts_rsn_desc) LIKE '%fraud%' or lower(sts_rsn_desc) LIKE '%off%net%' or lower(sts_rsn_desc) LIKE '%pay%def%' or lower(sts_rsn_desc) LIKE '%lost%equip%' or lower(sts_rsn_desc) LIKE '%tele%conv%' or lower(sts_rsn_desc) LIKE '%cont%acce%req%' or lower(sts_rsn_desc) LIKE '%proce%' or lower(lst_susp_rsn_desc) LIKE '%no%pay%' or lower(lst_susp_rsn_desc) LIKE '%no%use%' or lower(lst_susp_rsn_desc) LIKE '%fraud%' or lower(lst_susp_rsn_desc) LIKE '%off%net%' or lower(lst_susp_rsn_desc) LIKE '%pay%def%' or lower(lst_susp_rsn_desc) LIKE '%lost%equip%' or lower(lst_susp_rsn_desc) LIKE '%tele%conv%' or lower(lst_susp_rsn_desc) LIKE '%proce%')
 
 -------------------------------------------------------------------------------
 ---------------------------------- ERC TABLE ---------------------------------
@@ -86,10 +87,10 @@ WHERE
 -- FROM "lcpr.stage.dev"."tbl_prepd_erc_cust_mstr_ss_data"
 -- WHERE
 --     date(dt) = (SELECT input_month FROM parameters) --- Ideally, must be a BOM or EOM day.
---     -- AND cust_sts = 'O'
---     -- AND acct_type_cd = 'I'
---     -- AND ba_rgn_nm <> 'VI'
---     -- AND subsrptn_sts = 'A'
+--     -- and cust_sts = 'O'
+--     -- and acct_type_cd = 'I'
+--     -- and ba_rgn_nm <> 'VI'
+--     -- and subsrptn_sts = 'A'
 
 
 --- --- ### New
