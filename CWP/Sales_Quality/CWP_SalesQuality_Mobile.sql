@@ -7,8 +7,8 @@ WITH
 
 parameters as (
 SELECT 
-    date('2023-05-01') as input_month,  --- The month we want to obtain the results for
-    date_trunc('month', date('2022-10-01')) as current_month --- The last month of available data
+    date('2022-11-01') as input_month,  --- The month we want to obtain the results for
+    date_trunc('month', date('2023-06-01')) as current_month --- The last month of available data
 ),
 
 --------------------------------------------------------------------------------
@@ -718,6 +718,73 @@ FROM forward_months_mrc A
 LEFT JOIN survival B
     ON CAST(A.serviceno as varchar) = CAST(B.serviceno as varchar)
 GROUP BY 1
+),
+
+--------------------------------------------------------------------------------
+---------------------------------- WATERFALL ANALYSIS ---------------------------
+--------------------------------------------------------------------------------
+
+bill_1st_churners as (
+SELECT
+    distinct A.serviceno, 
+    dias_de_atraso, 
+    dt,
+    date_add('day', - dias_de_atraso, date(dt)) as bill_1st_dt
+FROM gross_adds A
+INNER JOIN "db-stage-dev"."polaris_campaigns" B 
+    ON cast(A.accountno as varchar) = cast(B.billableaccountno as varchar)
+WHERE 
+    date(dt) = (SELECT input_month FROM parameters)  + interval '5' month - interval '1' day 
+    -- and dias_de_atraso between 90 and 125
+    and dias_de_atraso > 90
+),
+
+bill_2nd_churners as (
+SELECT
+    distinct A.serviceno, 
+    dias_de_atraso, 
+    dt,
+    date_add('day', - dias_de_atraso, date(dt)) as bill_2nd_dt
+FROM gross_adds A
+INNER JOIN "db-stage-dev"."polaris_campaigns" B 
+    ON cast(A.accountno as varchar) = cast(B.billableaccountno as varchar)
+    and dias_de_atraso between 90 and 125
+WHERE 
+    date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day 
+),
+
+bill_3rd_churners as (
+SELECT
+    distinct A.serviceno, 
+    dias_de_atraso, 
+    dt,
+    date_add('day', - dias_de_atraso, date(dt)) as bill_3rd_dt
+FROM gross_adds A
+INNER JOIN "db-stage-dev"."polaris_campaigns" B 
+    ON cast(A.accountno as varchar) = cast(B.billableaccountno as varchar)
+    and dias_de_atraso between 90 and 125
+WHERE 
+    date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day 
+),
+
+waterfall_churners as (
+SELECT 
+    case 
+        when A.serviceno is null then cast(B.serviceno as varchar)
+        when B.serviceno is null then cast(A.serviceno as varchar)
+        when A.serviceno is null and B.serviceno is null then cast(C.serviceno as varchar)
+        when C.serviceno is null then cast(A.serviceno as varchar)
+    else null end as serviceno,
+    A.serviceno as bill_1st_churner, 
+    B.serviceno as bill_2nd_churner, 
+    C.serviceno as bill_3rd_churner
+FROM forward_months A
+FULL OUTER JOIN bill_1st_churners B
+    ON cast(A.serviceno as varchar) = cast(B.serviceno as varchar)
+FULL OUTER JOIN bill_2nd_churners C
+    ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
+FULL OUTER JOIN bill_3rd_churners D
+    ON cast(A.serviceno as varchar) = cast(D.serviceno as varchar)
 )
 
 --------------------------------------------------------------------------------
@@ -775,9 +842,9 @@ SELECT
     mrc_m0, mrc_m1, mrc_m2, mrc_m3, mrc_m4, mrc_m5, mrc_m6, mrc_m7, mrc_m8, mrc_m9, mrc_m10, mrc_m11, mrc_m12, 
     
     churn_m6 as churners_6_month, 
-    '' as churners_90_1st_bill, --- We do not have a realiable column to get the issuance dt of the bills of the previous months.
-    '' as churners_90_2nd_bill, 
-    '' as churners_90_3rd_bill, 
+    bill_1st_churner as churners_90_1st_bill, --- We do not have a realiable column to get the issuance dt of the bills of the previous months.
+    bill_2nd_churner as churners_90_2nd_bill, 
+    bill_3rd_churner as churners_90_3rd_bill, 
     '' as rejoiners_1st_bill, 
     '' as rejoiners_2nd_bill, 
     '' as rejoiners_3rd_bill, 
@@ -798,12 +865,30 @@ LEFT JOIN churn_type D
     ON A.serviceno = D.serviceno
 LEFT JOIN mrc_evol F
     ON A.serviceno = F.serviceno
+LEFT JOIN waterfall_churners E
+    ON A.serviceno = E.serviceno
 )
 
 SELECT 
     *
+    -- distinct date_trunc('month', date(bill_3rd_dt)) as bill_month, 
+    -- count(distinct serviceno) as gross,
+    -- count(distinct churners_90_1st_bill) as churners_bill1, 
+    -- count(distinct churners_90_2nd_bill) as churners_bill2, 
+    -- count(distinct churners_90_3rd_bill) as churners_bill3, 
+    -- sum(voluntary_churners_6_month)
 FROM final_result
+-- FROM bill_3rd_churners
 WHERE r_nm = 1 --- Eliminating residual duplicates
+-- GROUP BY 1
 
 -- ORDER BY serviceno
+-- LIMIT 10
+
+-- SELECT
+--     -- *
+--     date_trunc('month', date(bill_1st_dt)) as month_1st_dt, 
+--     count(distinct serviceno)
+-- FROM bill_1st_churners
+-- GROUP BY 1
 -- LIMIT 10
