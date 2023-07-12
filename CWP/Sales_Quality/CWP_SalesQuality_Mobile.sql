@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-11-01') as input_month,  --- The month we want to obtain the results for
+    date('2022-07-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-06-01')) as current_month --- The last month of available data
 ),
 
@@ -517,146 +517,146 @@ ORDER BY A.serviceno
 --- useful for other purposes.
 ---
 
--- invol_churn as (
--- SELECT
---     distinct A.serviceno, 
+invol_churn as (
+SELECT
+    distinct A.serviceno, 
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
---         and surv_m0 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '0' month - interval '1' day) then 1 else null end as invol_m0, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '1' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m0,
+    case when 
+        (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
+        and surv_m0 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '0' month - interval '1' day) then 1 else null end as invol_m0, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '1' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m0,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
---         and surv_m1 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '2' month - interval '1' day)) then 1 else null end as invol_m1, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '2' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m1,
+    case when 
+        (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
+        and surv_m1 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '2' month - interval '1' day)) then 1 else null end as invol_m1, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '2' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m1,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '2' month < (SELECT current_month FROM parameters) 
---         and surv_m2 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '3' month - interval '1' day)) then 1 else null end as invol_m2, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '3' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m2,
+    case when 
+        (SELECT input_month FROM parameters) + interval '2' month < (SELECT current_month FROM parameters) 
+        and surv_m2 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '3' month - interval '1' day)) then 1 else null end as invol_m2, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '3' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m2,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '3' month < (SELECT current_month FROM parameters) 
---         and surv_m3 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '4' month - interval '1' day)) then 1 else null end as invol_m3, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '4' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m3,
+    case when 
+        (SELECT input_month FROM parameters) + interval '3' month < (SELECT current_month FROM parameters) 
+        and surv_m3 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '4' month - interval '1' day)) then 1 else null end as invol_m3, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '4' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m3,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '4' month < (SELECT current_month FROM parameters) 
---         and surv_m4 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '5' month - interval '1' day)) then 1 else null end as invol_m4, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '5' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m4,
+    case when 
+        (SELECT input_month FROM parameters) + interval '4' month < (SELECT current_month FROM parameters) 
+        and surv_m4 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '5' month - interval '1' day)) then 1 else null end as invol_m4, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '5' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m4,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '5' month < (SELECT current_month FROM parameters) 
---         and surv_m5 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '6' month - interval '1' day)) then 1 else null end as invol_m5, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m5,
+    case when 
+        (SELECT input_month FROM parameters) + interval '5' month < (SELECT current_month FROM parameters) 
+        and surv_m5 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '6' month - interval '1' day)) then 1 else null end as invol_m5, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m5,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
---         and surv_m6 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '7' month - interval '1' day)) then 1 else null end as invol_m6, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m6,
+    case when 
+        (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
+        and surv_m6 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '7' month - interval '1' day)) then 1 else null end as invol_m6, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m6,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '7' month < (SELECT current_month FROM parameters) 
---         and surv_m7 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '8' month - interval '1' day)) then 1 else null end as invol_m7, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '8' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m7,
+    case when 
+        (SELECT input_month FROM parameters) + interval '7' month < (SELECT current_month FROM parameters) 
+        and surv_m7 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '8' month - interval '1' day)) then 1 else null end as invol_m7, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '8' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m7,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '8' month < (SELECT current_month FROM parameters) 
---         and surv_m8 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '9' month - interval '1' day)) then 1 else null end as invol_m8, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '9' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m8,
+    case when 
+        (SELECT input_month FROM parameters) + interval '8' month < (SELECT current_month FROM parameters) 
+        and surv_m8 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '9' month - interval '1' day)) then 1 else null end as invol_m8, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '9' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m8,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '9' month < (SELECT current_month FROM parameters) 
---         and surv_m9 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '10' month - interval '1' day)) then 1 else null end as invol_m9, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '10' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m9,
+    case when 
+        (SELECT input_month FROM parameters) + interval '9' month < (SELECT current_month FROM parameters) 
+        and surv_m9 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '10' month - interval '1' day)) then 1 else null end as invol_m9, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '10' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m9,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '10' month < (SELECT current_month FROM parameters) 
---         and surv_m10 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '11' month - interval '1' day)) then 1 else null end as invol_m10, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '11' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m10,
+    case when 
+        (SELECT input_month FROM parameters) + interval '10' month < (SELECT current_month FROM parameters) 
+        and surv_m10 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '11' month - interval '1' day)) then 1 else null end as invol_m10, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '11' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m10,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '11' month < (SELECT current_month FROM parameters) 
---         and surv_m11 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '12' month - interval '1' day)) then 1 else null end as invol_m11, 
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '12' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m11,
+    case when 
+        (SELECT input_month FROM parameters) + interval '11' month < (SELECT current_month FROM parameters) 
+        and surv_m11 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '12' month - interval '1' day)) then 1 else null end as invol_m11, 
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '12' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m11,
     
---     case when 
---         (SELECT input_month FROM parameters) + interval '12' month < (SELECT current_month FROM parameters) 
---         and surv_m12 is null 
---         -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '13' month - interval '1' day)) then 1 else null end as invol_m12
---         and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '13' month - interval '1' day and "dias_de_atraso" > 90)
---         then 1 else null end as invol_m12
+    case when 
+        (SELECT input_month FROM parameters) + interval '12' month < (SELECT current_month FROM parameters) 
+        and surv_m12 is null 
+        -- and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM "lla_cco_int_ext_dev"."drc_movil_new" WHERE date_parse(fecha_drc,'%m/%d/%Y%') between ((SELECT input_month FROM parameters) + interval '0' month - interval '1' day) and ((SELECT input_month FROM parameters) + interval '13' month - interval '1' day)) then 1 else null end as invol_m12
+        and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '13' month - interval '1' day and "dias_de_atraso" > 90)
+        then 1 else null end as invol_m12
 
--- -- FROM forward_months A
--- -- LEFT JOIN survival B
---     -- ON A.serviceno = B.serviceno
--- FROM survival A
--- ORDER BY A.serviceno
--- ),
+-- FROM forward_months A
+-- LEFT JOIN survival B
+    -- ON A.serviceno = B.serviceno
+FROM survival A
+ORDER BY A.serviceno
+),
 
--- vol_churn as (
--- SELECT 
---     distinct A.serviceno,
+vol_churn as (
+SELECT 
+    distinct A.serviceno,
     
---     case when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) and surv_m0 is null and invol_m0 is null then 1 else null end as vol_m0, 
+    case when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) and surv_m0 is null and invol_m0 is null then 1 else null end as vol_m0, 
     
---     case when (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) and surv_m1 is null and invol_m0 is null and invol_m1 is null then 1 else null end as vol_m1, 
+    case when (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) and surv_m1 is null and invol_m0 is null and invol_m1 is null then 1 else null end as vol_m1, 
     
---     case when (SELECT input_month FROM parameters) + interval '2' month < (SELECT current_month FROM parameters) and surv_m2 is null and invol_m1 is null and invol_m2 is null then 1 else null end as vol_m2, 
+    case when (SELECT input_month FROM parameters) + interval '2' month < (SELECT current_month FROM parameters) and surv_m2 is null and invol_m1 is null and invol_m2 is null then 1 else null end as vol_m2, 
     
---     case when (SELECT input_month FROM parameters) + interval '3' month < (SELECT current_month FROM parameters) and surv_m3 is null and invol_m2 is null and invol_m3 is null then 1 else null end as vol_m3, 
+    case when (SELECT input_month FROM parameters) + interval '3' month < (SELECT current_month FROM parameters) and surv_m3 is null and invol_m2 is null and invol_m3 is null then 1 else null end as vol_m3, 
     
---     case when (SELECT input_month FROM parameters) + interval '4' month < (SELECT current_month FROM parameters) and surv_m4 is null and invol_m3 is null and invol_m4 is null then 1 else null end as vol_m4, 
+    case when (SELECT input_month FROM parameters) + interval '4' month < (SELECT current_month FROM parameters) and surv_m4 is null and invol_m3 is null and invol_m4 is null then 1 else null end as vol_m4, 
     
---     case when (SELECT input_month FROM parameters) + interval '5' month < (SELECT current_month FROM parameters) and surv_m5 is null and invol_m4 is null and invol_m5 is null then 1 else null end as vol_m5, 
+    case when (SELECT input_month FROM parameters) + interval '5' month < (SELECT current_month FROM parameters) and surv_m5 is null and invol_m4 is null and invol_m5 is null then 1 else null end as vol_m5, 
     
---     case when (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) and surv_m6 is null and invol_m5 is null and invol_m6 is null then 1 else null end as vol_m6, 
+    case when (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) and surv_m6 is null and invol_m5 is null and invol_m6 is null then 1 else null end as vol_m6, 
     
---     case when (SELECT input_month FROM parameters) + interval '7' month < (SELECT current_month FROM parameters) and surv_m7 is null and invol_m6 is null and invol_m7 is null then 1 else null end as vol_m7, 
+    case when (SELECT input_month FROM parameters) + interval '7' month < (SELECT current_month FROM parameters) and surv_m7 is null and invol_m6 is null and invol_m7 is null then 1 else null end as vol_m7, 
     
---     case when (SELECT input_month FROM parameters) + interval '8' month < (SELECT current_month FROM parameters) and surv_m8 is null and invol_m7 is null and invol_m8 is null then 1 else null end as vol_m8, 
+    case when (SELECT input_month FROM parameters) + interval '8' month < (SELECT current_month FROM parameters) and surv_m8 is null and invol_m7 is null and invol_m8 is null then 1 else null end as vol_m8, 
     
---     case when (SELECT input_month FROM parameters) + interval '9' month < (SELECT current_month FROM parameters) and surv_m9 is null and invol_m8 is null and invol_m9 is null then 1 else null end as vol_m9, 
+    case when (SELECT input_month FROM parameters) + interval '9' month < (SELECT current_month FROM parameters) and surv_m9 is null and invol_m8 is null and invol_m9 is null then 1 else null end as vol_m9, 
     
---     case when (SELECT input_month FROM parameters) + interval '10' month < (SELECT current_month FROM parameters) and surv_m10 is null and invol_m9 is null and invol_m10 is null then 1 else null end as vol_m10,
+    case when (SELECT input_month FROM parameters) + interval '10' month < (SELECT current_month FROM parameters) and surv_m10 is null and invol_m9 is null and invol_m10 is null then 1 else null end as vol_m10,
     
---     case when (SELECT input_month FROM parameters) + interval '11' month < (SELECT current_month FROM parameters) and surv_m11 is null and invol_m10 is null and invol_m11 is null then 1 else null end as vol_m11,
+    case when (SELECT input_month FROM parameters) + interval '11' month < (SELECT current_month FROM parameters) and surv_m11 is null and invol_m10 is null and invol_m11 is null then 1 else null end as vol_m11,
     
---     case when (SELECT input_month FROM parameters) + interval '12' month < (SELECT current_month FROM parameters) and surv_m12 is null and invol_m11 is null and invol_m12 is null then 1 else null end as vol_m12
+    case when (SELECT input_month FROM parameters) + interval '12' month < (SELECT current_month FROM parameters) and surv_m12 is null and invol_m11 is null and invol_m12 is null then 1 else null end as vol_m12
     
--- -- FROM forward_months A
--- -- LEFT JOIN survival B
--- --     ON A.serviceno = B.serviceno
--- FROM survival A
--- LEFT JOIN invol_churn C
---     ON A.serviceno = C.serviceno
--- ORDER BY A.serviceno
--- ),
+-- FROM forward_months A
+-- LEFT JOIN survival B
+--     ON A.serviceno = B.serviceno
+FROM survival A
+LEFT JOIN invol_churn C
+    ON A.serviceno = C.serviceno
+ORDER BY A.serviceno
+),
 
 --------------------------------------------------------------------------------
 ---------------------------------- ARPU (ARPC): MRC ---------------------------
@@ -724,68 +724,77 @@ GROUP BY 1
 ---------------------------------- WATERFALL ANALYSIS ---------------------------
 --------------------------------------------------------------------------------
 
-bill_1st_churners as (
+bill_dates as (
 SELECT
     distinct A.serviceno, 
-    dias_de_atraso, 
-    dt,
-    date_add('day', - dias_de_atraso, date(dt)) as bill_1st_dt
-FROM gross_adds A
-INNER JOIN "db-stage-dev"."polaris_campaigns" B 
-    ON cast(A.accountno as varchar) = cast(B.billableaccountno as varchar)
-WHERE 
-    date(dt) = (SELECT input_month FROM parameters)  + interval '5' month - interval '1' day 
-    -- and dias_de_atraso between 90 and 125
-    and dias_de_atraso > 90
-),
-
-bill_2nd_churners as (
-SELECT
-    distinct A.serviceno, 
-    dias_de_atraso, 
-    dt,
-    date_add('day', - dias_de_atraso, date(dt)) as bill_2nd_dt
-FROM gross_adds A
-INNER JOIN "db-stage-dev"."polaris_campaigns" B 
-    ON cast(A.accountno as varchar) = cast(B.billableaccountno as varchar)
-    and dias_de_atraso between 90 and 125
-WHERE 
-    date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day 
-),
-
-bill_3rd_churners as (
-SELECT
-    distinct A.serviceno, 
-    dias_de_atraso, 
-    dt,
-    date_add('day', - dias_de_atraso, date(dt)) as bill_3rd_dt
-FROM gross_adds A
-INNER JOIN "db-stage-dev"."polaris_campaigns" B 
-    ON cast(A.accountno as varchar) = cast(B.billableaccountno as varchar)
-    and dias_de_atraso between 90 and 125
-WHERE 
-    date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day 
-),
-
-waterfall_churners as (
-SELECT 
+    A.accountno,
+    A.sell_date, 
     case 
-        when A.serviceno is null then cast(B.serviceno as varchar)
-        when B.serviceno is null then cast(A.serviceno as varchar)
-        when A.serviceno is null and B.serviceno is null then cast(C.serviceno as varchar)
-        when C.serviceno is null then cast(A.serviceno as varchar)
-    else null end as serviceno,
-    A.serviceno as bill_1st_churner, 
-    B.serviceno as bill_2nd_churner, 
-    C.serviceno as bill_3rd_churner
+        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day then (SELECT input_month FROM parameters) + interval '3' day
+        when sell_date > (SELECT input_month FROM parameters) + interval '3' day then (SELECT input_month FROM parameters) + interval '1' month + interval '3' day
+    end as bill_1st_date, 
+    case 
+        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day then (SELECT input_month FROM parameters) + interval '1' month + interval '3' day
+        when sell_date > (SELECT input_month FROM parameters) + interval '3' day then (SELECT input_month FROM parameters) + interval '2' month + interval '3' day
+    end as bill_2nd_date, 
+    case 
+        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day then (SELECT input_month FROM parameters) + interval '2' month + interval '3' day
+        when sell_date > (SELECT input_month FROM parameters) + interval '3' day then (SELECT input_month FROM parameters) + interval '3' month + interval '3' day
+    end as bill_3rd_date
 FROM forward_months A
-FULL OUTER JOIN bill_1st_churners B
+),
+
+churners_per_bill as (
+SELECT
+    distinct A.serviceno, 
+    A.sell_date, 
+    
+    A.bill_1st_date,
+    
+    case when 
+        cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day and dias_de_atraso > 90)
+    then 1 else null end as churner_1st_bill,
+    
+    A.bill_2nd_date, 
+    
+    case when 
+        cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day and dias_de_atraso > 90)
+        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day and dias_de_atraso > 90)
+    then 1 else null end as churner_2nd_bill,
+    
+    A.bill_3rd_date,
+    
+    case when 
+        cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day and dias_de_atraso > 90)
+        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day and dias_de_atraso > 90)
+        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM "db-stage-dev"."polaris_campaigns" WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day and dias_de_atraso > 90)
+    then 1 else null end as churner_3rd_bill
+    
+FROM bill_dates A
+),
+
+rejoiners_per_bill as (
+SELECT
+    distinct A.serviceno, 
+    churner_1st_bill, 
+    churner_2nd_bill, 
+    churner_3rd_bill,
+    case 
+        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day and surv_m2 is null and surv_m3 is not null then 1
+        when sell_date > (SELECT input_month FROM parameters) + interval '3' day and surv_m3 is null and surv_m4 is not null then 1
+    else null end as rejoiners_1st_bill, 
+    case 
+        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day and surv_m3 is null and surv_m4 is not null then 1
+        when sell_date > (SELECT input_month FROM parameters) + interval '3' day and surv_m4 is null and surv_m5 is not null then 1
+    else null end as rejoiners_2nd_bill, 
+    case 
+        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day and surv_m4 is null and surv_m5 is not null then 1
+        when sell_date > (SELECT input_month FROM parameters) + interval '3' day and surv_m5 is null and surv_m6 is not null then 1
+    else null end as rejoiners_3rd_bill
+FROM survival A
+LEFT JOIN churners_per_bill B
     ON cast(A.serviceno as varchar) = cast(B.serviceno as varchar)
-FULL OUTER JOIN bill_2nd_churners C
-    ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
-FULL OUTER JOIN bill_3rd_churners D
-    ON cast(A.serviceno as varchar) = cast(D.serviceno as varchar)
-)
+),
 
 --------------------------------------------------------------------------------
 ---------------------------------- FINAL RESULT ---------------------------
@@ -795,7 +804,7 @@ FULL OUTER JOIN bill_3rd_churners D
 --- Additionally, some columns needed for matching with the Fixed Sales Quality table
 --- structure are added.
 
-, final_result as (
+final_result as (
 SELECT
     distinct A.serviceno, 
     A.accountno, 
@@ -819,10 +828,9 @@ SELECT
     A.plan_code,
     A.plan_name,
     case 
-        when A.total_mrc_d < 23 then '<23'
-        when A.total_mrc_d >= 23 and A.total_mrc_d < 28 then '[23,28)'
-        when A.total_mrc_d >= 28 and A.total_mrc_d < 32 then '[28,32)'
-        when A.total_mrc_d >= 32 then '>=32'
+        when A.total_mrc_d < 25 then '<23'
+        when A.total_mrc_d >= 25 and A.total_mrc_d < 30 then '[25,30)'
+        when A.total_mrc_d >= 30 then '>=30'
     end as mrc_plan,
     A.npn_30_flag,
     A.npn_60_flag,
@@ -842,13 +850,13 @@ SELECT
     mrc_m0, mrc_m1, mrc_m2, mrc_m3, mrc_m4, mrc_m5, mrc_m6, mrc_m7, mrc_m8, mrc_m9, mrc_m10, mrc_m11, mrc_m12, 
     
     churn_m6 as churners_6_month, 
-    bill_1st_churner as churners_90_1st_bill, --- We do not have a realiable column to get the issuance dt of the bills of the previous months.
-    bill_2nd_churner as churners_90_2nd_bill, 
-    bill_3rd_churner as churners_90_3rd_bill, 
-    '' as rejoiners_1st_bill, 
-    '' as rejoiners_2nd_bill, 
-    '' as rejoiners_3rd_bill, 
-    case when churn_m6 is not null and churntype_m6 = 'Voluntario' then 1 else null end as voluntary_churners_6_month,
+    churner_1st_bill as churners_90_1st_bill, 
+    churner_2nd_bill as churners_90_2nd_bill, 
+    churner_3rd_bill as churners_90_3rd_bill, 
+    rejoiners_1st_bill, 
+    rejoiners_2nd_bill, 
+    rejoiners_3rd_bill, 
+    vol_m6 as voluntary_churners_6_month,
     
     row_number() over (partition by A.serviceno order by sell_date asc) as r_nm --- For eliminating residual duplicates
 
@@ -857,38 +865,48 @@ LEFT JOIN survival B
     ON A.serviceno = B.serviceno
 LEFT JOIN churn C
     ON A.serviceno = C.serviceno
--- LEFT JOIN vol_churn D
-    -- ON A.serviceno = D.serviceno
+LEFT JOIN vol_churn D
+    ON A.serviceno = D.serviceno
 -- LEFT JOIN invol_churn E
     -- ON A.serviceno = E.serviceno
-LEFT JOIN churn_type D
-    ON A.serviceno = D.serviceno
-LEFT JOIN mrc_evol F
+LEFT JOIN churn_type F
     ON A.serviceno = F.serviceno
-LEFT JOIN waterfall_churners E
-    ON A.serviceno = E.serviceno
+LEFT JOIN mrc_evol G
+    ON A.serviceno = G.serviceno
+LEFT JOIN rejoiners_per_bill H
+    ON A.serviceno = H.serviceno
 )
 
-SELECT 
-    *
-    -- distinct date_trunc('month', date(bill_3rd_dt)) as bill_month, 
-    -- count(distinct serviceno) as gross,
-    -- count(distinct churners_90_1st_bill) as churners_bill1, 
-    -- count(distinct churners_90_2nd_bill) as churners_bill2, 
-    -- count(distinct churners_90_3rd_bill) as churners_bill3, 
-    -- sum(voluntary_churners_6_month)
-FROM final_result
--- FROM bill_3rd_churners
-WHERE r_nm = 1 --- Eliminating residual duplicates
+-- SELECT 
+--     *
+-- FROM final_result
+-- WHERE r_nm = 1 --- Eliminating residual duplicates
 -- GROUP BY 1
 
 -- ORDER BY serviceno
 -- LIMIT 10
 
+
+SELECT
+    *
+    -- count(distinct serviceno) as total_gross,
+    -- sum(churners_90_1st_bill) as churners_bill1, 
+    -- sum(churners_90_2nd_bill) as churners_bill2, 
+    -- sum(churners_90_3rd_bill) as churners_bill3, 
+    -- sum(rejoiners_1st_bill) as rejoiners_bill1, 
+    -- sum(rejoiners_2nd_bill) as rejoiners_bill2, 
+    -- sum(rejoiners_3rd_bill) as rejoiners_bill3, 
+    -- sum(voluntary_churners_6_month) as vol_churns_6m,
+    -- sum(surv_m6) as surv_m6
+FROM final_result
+WHERE r_nm = 1 --- Eliminating residual duplicates
+-- ORDER BY random(*)
+-- LIMIT 10
+
 -- SELECT
---     -- *
---     date_trunc('month', date(bill_1st_dt)) as month_1st_dt, 
---     count(distinct serviceno)
--- FROM bill_1st_churners
--- GROUP BY 1
+--     count(distinct serviceno) as gross, 
+--     sum(churner_1st_bill) as churners_1st_bill, 
+--     sum(churner_2nd_bill) as churners_2nd_bill, 
+--     sum(churner_3rd_bill) as churners_3rd_bill
+-- FROM churners_per_bill
 -- LIMIT 10
