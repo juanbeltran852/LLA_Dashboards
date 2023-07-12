@@ -779,18 +779,9 @@ SELECT
     churner_1st_bill, 
     churner_2nd_bill, 
     churner_3rd_bill,
-    case 
-        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day and surv_m2 is null and surv_m3 is not null then 1
-        when sell_date > (SELECT input_month FROM parameters) + interval '3' day and surv_m3 is null and surv_m4 is not null then 1
-    else null end as rejoiners_1st_bill, 
-    case 
-        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day and surv_m3 is null and surv_m4 is not null then 1
-        when sell_date > (SELECT input_month FROM parameters) + interval '3' day and surv_m4 is null and surv_m5 is not null then 1
-    else null end as rejoiners_2nd_bill, 
-    case 
-        when sell_date <= (SELECT input_month FROM parameters) + interval '3' day and surv_m4 is null and surv_m5 is not null then 1
-        when sell_date > (SELECT input_month FROM parameters) + interval '3' day and surv_m5 is null and surv_m6 is not null then 1
-    else null end as rejoiners_3rd_bill
+    case when churner_1st_bill is not null and surv_m6 is not null then 1 else null end as rejoiners_1st_bill, 
+    case when churner_2nd_bill is not null and surv_m6 is not null then 1 else null end as rejoiners_2nd_bill, 
+    case when churner_3rd_bill is not null and surv_m6 is not null then 1 else null end as rejoiners_3rd_bill
 FROM survival A
 LEFT JOIN churners_per_bill B
     ON cast(A.serviceno as varchar) = cast(B.serviceno as varchar)
@@ -904,9 +895,6 @@ WHERE r_nm = 1 --- Eliminating residual duplicates
 -- LIMIT 10
 
 -- SELECT
---     count(distinct serviceno) as gross, 
---     sum(churner_1st_bill) as churners_1st_bill, 
---     sum(churner_2nd_bill) as churners_2nd_bill, 
---     sum(churner_3rd_bill) as churners_3rd_bill
--- FROM churners_per_bill
+--  *   
+-- FROM rejoiners_per_bill
 -- LIMIT 10
