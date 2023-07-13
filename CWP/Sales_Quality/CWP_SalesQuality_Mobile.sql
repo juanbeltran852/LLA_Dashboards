@@ -1173,7 +1173,7 @@ SELECT
         and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
     then 1 else null end as voluntary_churners_6_month,
     
-    row_number() over (partition by A.serviceno order by sell_date asc) as r_nm --- For eliminating residual duplicates
+    row_number() over (partition by A.serviceno order by sell_date, surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12) as r_nm --- For eliminating residual duplicates
 
 FROM forward_months A
 LEFT JOIN survival B
@@ -1199,4 +1199,3 @@ FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
 -- LIMIT 10
-
