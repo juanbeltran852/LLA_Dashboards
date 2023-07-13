@@ -924,15 +924,15 @@ SELECT
     distinct A.serviceno,
     A.accountno,
     date_trunc('month', date(A.dt)) as month_forward, 
-    max(C.total_mrc_d) as max_total_mrc
-FROM "db-analytics-prod"."tbl_postpaid_cwp" A
-RIGHT JOIN gross_pagos_npn C
-    ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
+    max(A.total_mrc_d) as max_total_mrc
+FROM forward_months A
+-- RIGHT JOIN gross_pagos_npn C
+    -- ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
     -- ON cast(A.accountno as varchar) = cast(C.accountno as varchar)
-WHERE
-    A.account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
-    and A.category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
-    and date(dt) between (select input_month from parameters) and (select input_month from parameters) + interval '13' month
+-- WHERE
+    -- A.account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
+    -- and A.category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
+    -- and date(dt) between (select input_month from parameters) and (select input_month from parameters) + interval '13' month
 GROUP BY 1, 2, 3
 ),
 
@@ -1199,15 +1199,6 @@ LEFT JOIN rejoiners_per_bill H
 
 SELECT
     *
-    -- count(distinct serviceno) as total_gross,
-    -- sum(churners_90_1st_bill) as churners_bill1, 
-    -- sum(churners_90_2nd_bill) as churners_bill2, 
-    -- sum(churners_90_3rd_bill) as churners_bill3, 
-    -- sum(rejoiners_1st_bill) as rejoiners_bill1, 
-    -- sum(rejoiners_2nd_bill) as rejoiners_bill2, 
-    -- sum(rejoiners_3rd_bill) as rejoiners_bill3, 
-    -- sum(voluntary_churners_6_month) as vol_churns_6m,
-    -- sum(surv_m6) as surv_m6
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
