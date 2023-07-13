@@ -1194,7 +1194,7 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    -- *
+    *
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
