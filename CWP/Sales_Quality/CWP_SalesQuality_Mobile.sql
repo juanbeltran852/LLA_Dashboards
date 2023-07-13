@@ -26,6 +26,7 @@ SELECT
     gross.service AS serviceno, ------ Each service number is a different phone number in Panama. We build the detail for each phone number.
     date(DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) AS sell_date, -- Target format example: 05/27/2023
     gross.channel_resumen AS sell_channel, 
+    date_trunc('month', date(DATE_PARSE(TRIM(gross.date),'%m/%d/%Y'))) as test_1,
     gross.procedencia AS procedencia, --- A phone number can come as a completely new number, as a previous prepaid customer or as a number brought from another operator.
     activado_en as activation_channel,
     case when lower(substr(trim(gross.agent_acc_code), 1, position('-' in gross.agent_acc_code) - 1)) like '%none%' then null else substr(upper(trim(gross.agent_acc_code)), 1, position('-' in gross.agent_acc_code) - 1) end AS agent_acc_code, --- The column shows something like 'ABC100 - John Doe' so we separate the code and the name of the sales agent. Also, there are various records like 'NONE - NONE' so they are replaced with null values.
@@ -33,9 +34,12 @@ SELECT
     gross.plan_name AS plan_name, 
     case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag, --- This flags customers when they are given a new cellphone with their new phone number.
     gross.plan_id as plan_code
+    -- distinct gross.date
 FROM "db-stage-prod"."gross_ads_movil_b2c_newversion" gross
 WHERE
-    date_trunc('month', DATE_PARSE(TRIM(gross.date),'%m/%d/%Y')) = (SELECT input_month FROM parameters)
+    date_trunc('month', date(case when gross.date is null or gross.date in ('', ' ') then null else DATE_PARSE(TRIM(gross.date),'%m/%d/%Y') end)) = (SELECT input_month FROM parameters)
+    -- date_trunc('month', date(case when gross.date is null or gross.date in ('', ' ') then null else DATE_PARSE(TRIM(gross.date),'%m/%d/%Y') end)) = date('2022-10-01')
+-- LIMIT 10
 ), 
 
 --------------------------------------------------------------------------------
