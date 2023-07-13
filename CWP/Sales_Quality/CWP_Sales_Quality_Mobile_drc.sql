@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-06-01') as input_month,  --- The month we want to obtain the results for
+    date('2022-01-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-07-01')) as current_month --- The last month of available data
 ),
 
@@ -274,7 +274,7 @@ FROM "lla_cco_int_ext_dev"."drc_movil_new"
 WHERE 
     date(date_parse(fecha_drc,'%m/%d/%Y%')) between (SELECT input_month FROM parameters) and (SELECT input_month FROM parameters) + interval '13' month
     and DAY(DATE_ADD('day', 1, date_parse(fecha_drc,'%m/%d/%Y%'))) = 1
-)
+),
 
 ---
 --- In the survival subquery we assign, for each month, a 1 in case these two conditions are met (both of them are required): 
@@ -1207,7 +1207,16 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    * 
+    -- * 
+    count(distinct serviceno) as gross, 
+    sum(churners_90_1st_bill) as churners_bill1, 
+    sum(churners_90_2nd_bill) as churners_bill2, 
+    sum(churners_90_3rd_bill) as churners_bill3, 
+    sum(rejoiners_1st_bill) as rejoiners_bill1, 
+    sum(rejoiners_2nd_bill) as rejoiners_bill2, 
+    sum(rejoiners_3rd_bill) as rejoiners_bill3, 
+    sum(voluntary_churners_6_month) as volchurners_m6,
+    sum(surv_m6) as surv_m6
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
