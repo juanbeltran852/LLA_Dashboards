@@ -7,8 +7,8 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-09-01') as input_month,  --- The month we want to obtain the results for
-    date_trunc('month', date('2023-06-01')) as current_month --- The last month of available data
+    date('2022-06-01') as input_month,  --- The month we want to obtain the results for
+    date_trunc('month', date('2023-07-01')) as current_month --- The last month of available data
 ),
 
 --------------------------------------------------------------------------------
@@ -1100,7 +1100,13 @@ SELECT
     case when 
         churner_3rd_bill is not null 
         and surv_m6 is not null 
-    then 1 else null end as rejoiners_3rd_bill
+    then 1 else null end as rejoiners_3rd_bill, 
+    case when 
+        (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
+        and surv_m6 is null 
+        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
+        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+    then 1 else null end as voluntary_churners_6_month
 FROM survival A
 LEFT JOIN churners_per_bill B
     ON cast(A.serviceno as varchar) = cast(B.serviceno as varchar)
@@ -1166,14 +1172,9 @@ SELECT
     rejoiners_1st_bill, 
     rejoiners_2nd_bill, 
     rejoiners_3rd_bill, 
-    case when 
-        (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
-        and surv_m6 is null 
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
-    then 1 else null end as voluntary_churners_6_month,
+    voluntary_churners_6_month,
     
-    row_number() over (partition by A.serviceno order by sell_date, surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12) as r_nm --- For eliminating residual duplicates
+    row_number() over (partition by A.serviceno order by sell_date, surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12, churner_1st_bill, churner_2nd_bill, churner_3rd_bill, rejoiners_1st_bill, rejoiners_2nd_bill, rejoiners_3rd_bill, voluntary_churners_6_month asc) as r_nm --- For eliminating residual duplicates
 
 FROM forward_months A
 LEFT JOIN survival B
@@ -1194,7 +1195,16 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    *
+    * 
+    -- count(distinct serviceno) as gross, 
+    -- sum(churners_90_1st_bill) as churners_bill1, 
+    -- sum(churners_90_2nd_bill) as churners_bill2, 
+    -- sum(churners_90_3rd_bill) as churners_bill3, 
+    -- sum(rejoiners_1st_bill) as rejoiners_bill1, 
+    -- sum(rejoiners_2nd_bill) as rejoiners_bill2, 
+    -- sum(rejoiners_3rd_bill) as rejoiners_bill3, 
+    -- sum(voluntary_churners_6_month) as volchurners_m6,
+    -- sum(surv_m6) as surv_m6
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
