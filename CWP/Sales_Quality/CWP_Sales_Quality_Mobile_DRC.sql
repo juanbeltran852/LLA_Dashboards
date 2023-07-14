@@ -1285,8 +1285,8 @@ SELECT
     A.activation_date,
     A.client_name,
     'Wireless' as techflag,
-    '' as socioeconomic_seg,
-    '' as movement_flag,
+    ' ' as socioeconomic_seg,
+    ' ' as movement_flag,
     'R' as customer_type_code,
     'Residencial' as customer_type_desc,
     -- A.province, --- Omitted beacuse the geographical hierarchy is being implemented directly in the dashboard.
