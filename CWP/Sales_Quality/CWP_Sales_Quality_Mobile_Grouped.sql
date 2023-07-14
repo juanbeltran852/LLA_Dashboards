@@ -26,6 +26,6 @@ null as rejoiners_2nd_bill_rgu,
 null as rejoiners_3rd_bill_rgu,
 null as rejoiners_3rd_bill_rgu
 
-FROM "dg_sandbox"."cwp_sales_quality_mobile" 
+FROM "dg-sandbox"."cwp_sqm_jan22_jun23"
 GROUP BY 1,2,3
 
