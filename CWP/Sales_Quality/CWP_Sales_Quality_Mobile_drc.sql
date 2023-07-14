@@ -1250,13 +1250,17 @@ SELECT
         (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
         --- #2. The account didn't make it to the 6th month
         and surv_m6 is null 
+        
         --- #3. The account is was not an involuntary churner for the 6th month
+        
         --- Polaris
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+        
         --- DRC
         and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
         and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+        
         --- If the conditions are met, the account was a voluntary churner
     then 1 else null end as voluntary_churners_6_month
 FROM survival A
@@ -1348,16 +1352,7 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    -- * 
-    count(distinct serviceno) as gross, 
-    sum(churners_90_1st_bill) as churners_bill1, 
-    sum(churners_90_2nd_bill) as churners_bill2, 
-    sum(churners_90_3rd_bill) as churners_bill3, 
-    sum(rejoiners_1st_bill) as rejoiners_bill1, 
-    sum(rejoiners_2nd_bill) as rejoiners_bill2, 
-    sum(rejoiners_3rd_bill) as rejoiners_bill3, 
-    sum(voluntary_churners_6_month) as volchurners_m6,
-    sum(surv_m6) as surv_m6
+    * 
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
