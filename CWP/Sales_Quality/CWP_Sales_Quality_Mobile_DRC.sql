@@ -1210,14 +1210,14 @@ SELECT
     --- Check if the account did churn as an involuntary churn in last day of the month in which the third bill could have gone in unpaid.
     case when
     --- #1: Polaris - Check involuntary churners in Polaris
-        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 7 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
         --- The account was not a 2nd bill churner
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
         --- The account was not a 1st bill churner
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
         
     --- #1: DRC - Check involuntary churners in DRC
-        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 7 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
         --- The account was not a 2nd bill churner
         and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
         --- The account was not a 1st bill churner
