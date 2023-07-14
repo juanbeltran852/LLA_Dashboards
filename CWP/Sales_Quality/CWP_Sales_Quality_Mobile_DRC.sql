@@ -2,6 +2,7 @@
 -------------------------- CWP - SALES QUALITY MOBILE --------------------------
 --------------------------------------------------------------------------------
 -------------------------------- DRC version -----------------------------------
+------------------------ To be used before September 2022 ----------------------
 
 --- Commented in 13/07/2023 (d/m/y).
 
@@ -11,7 +12,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-03-01') as input_month,  --- The month we want to obtain the results for
+    date('2022-01-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-07-01')) as current_month --- The last month of available data
 ),
 
