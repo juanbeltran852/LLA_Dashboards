@@ -9,7 +9,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-03-01') as input_month,  --- The month we want to obtain the results for
+    date('2022-09-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-07-01')) as current_month --- The last month of available data
 ),
 
@@ -1289,8 +1289,8 @@ SELECT
     A.activation_date,
     A.client_name,
     'Wireless' as techflag,
-    '' as socioeconomic_seg,
-    '' as movement_flag,
+    ' ' as socioeconomic_seg,
+    ' ' as movement_flag,
     'R' as customer_type_code,
     'Residencial' as customer_type_desc,
     -- A.province, --- Omitted beacuse the geographical hierarchy is being implemented directly in the dashboard.
@@ -1361,4 +1361,3 @@ FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
 -- LIMIT 10
-
