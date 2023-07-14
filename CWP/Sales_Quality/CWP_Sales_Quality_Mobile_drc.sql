@@ -7,7 +7,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-01-01') as input_month,  --- The month we want to obtain the results for
+    date('2022-03-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-07-01')) as current_month --- The last month of available data
 ),
 
@@ -30,16 +30,14 @@ SELECT
     gross.procedencia AS procedencia, --- A phone number can come as a completely new number, as a previous prepaid customer or as a number brought from another operator.
     activado_en as activation_channel,
     case when lower(substr(trim(gross.agent_acc_code), 1, position('-' in gross.agent_acc_code) - 1)) like '%none%' then null else substr(upper(trim(gross.agent_acc_code)), 1, position('-' in gross.agent_acc_code) - 1) end AS agent_acc_code, --- The column shows something like 'ABC100 - John Doe' so we separate the code and the name of the sales agent. Also, there are various records like 'NONE - NONE' so they are replaced with null values.
-    case when lower(trim(substr(gross.agent_acc_code, position('-' in gross.agent_acc_code) + 2, length(gross.agent_acc_code)))) like '%none%' then null else trim(substr(upper(gross.agent_acc_code), position('-' in gross.agent_acc_code) + 2, length(gross.agent_acc_code))) end as sales_agent_name,
+    case when lower(trim(substr(gross.agent_acc_code, position('-' in gross.agent_acc_code) + 2, length(gross.agent_acc_code)))) like '%none%' then null else trim(substr(upper(gross.agent_acc_code), position('-' in gross.agent_acc_code) + 2, length(gross.agent_acc_code))) end as sales_agent_name, --- We separate the name of the agent from its code.
     gross.plan_name AS plan_name, 
-    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag, --- This flags customers when they are given a new cellphone with their new phone number.
+    case when (gross.marca is null or lower(gross.marca) like '%no%handset%' or lower(gross.marca) in ('', ' ')) then null else service end as handsets_flag, --- This flags customers when they are given a new cellphone with their new mobile service.
     gross.plan_id as plan_code
-    -- distinct gross.date
 FROM "db-stage-prod"."gross_ads_movil_b2c_newversion" gross
 WHERE
     date_trunc('month', date(case when gross.date is null or gross.date in ('', ' ') then null else DATE_PARSE(TRIM(gross.date),'%m/%d/%Y') end)) = (SELECT input_month FROM parameters)
-    -- date_trunc('month', date(case when gross.date is null or gross.date in ('', ' ') then null else DATE_PARSE(TRIM(gross.date),'%m/%d/%Y') end)) = date('2022-10-01')
--- LIMIT 10
+    --- The code may have problems if the date in the gross adds table does not meet with the expected format for a date
 ), 
 
 --------------------------------------------------------------------------------
@@ -102,7 +100,7 @@ SELECT
     A.plan_name,
     case when B.fi_bill_dt_m0 is null then B.first_dt_user else date(fi_bill_dt_m0) end as first_bill_created_dt
 FROM gross_adds A
-INNER JOIN useful_dna B --- We keep just the commond records in both tables
+INNER JOIN useful_dna B --- We keep just the commond records in both tables. Most of the times, all accounts make it to this part.
     ON cast(A.serviceno as varchar) = cast(B.serviceno_dna as varchar)
 ),
 
@@ -111,7 +109,7 @@ INNER JOIN useful_dna B --- We keep just the commond records in both tables
 --------------------------------------------------------------------------------
 
 ---
---- We are interested in the payments table because we want to identify NPN.
+--- We are interested in the payments table because we want to measure Never Paid Never indicator.
 --- Additionally, we want to flag customers with early payments.
 ---
 
@@ -153,16 +151,8 @@ LEFT JOIN info_pagos B
 --------------------------------------------------------------------------------
 
 ---
---- In the derecognition table we can identify involuntary churners
+--- Now we flag the different windows for NPN
 ---
-
--- DRC_table AS (
--- SELECT 
---     CAST(act_acct_cd AS VARCHAR) AS accountno_drc,
---     ARRAY_AGG(DATE_PARSE(drc_period_final,'%Y-%m') ORDER BY DATE_PARSE(drc_period_final,'%Y-%m'))[1] AS first_drc_date
--- FROM "lla_cco_int_ext_dev"."drc_movil_new"
--- GROUP BY act_acct_cd
--- ),
 
 gross_pagos_npn as (
 SELECT
@@ -198,14 +188,8 @@ SELECT
         WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 90 and total_payments_in_3_months IS NULL THEN A.accountno
         WHEN date_diff('day', date(sell_date), (SELECT current_month FROM parameters)) > 90 and total_payments_in_3_months < total_mrc_d THEN A.accountno 
         ELSE NULL 
-    END AS npn_flag
-    -- CASE   
-        -- WHEN first_drc_date IS NULL OR B.accountno_drc IS NULL THEN 'No DRC'
-        -- ELSE 'DRC' 
-    -- END AS drc_flag --- Flag used in the queries send by the OpCo. We do not use this column anymore.
+    END AS npn_flag --- Although this column is exactly the same to npn_90_flag, we cannot delete it beacuse is being used in the Power Bi Dashboard.
 FROM gross_pagos A
--- LEFT JOIN drc_table  B
-    -- ON A.accountno = B.accountno_drc
 ),
 
 --------------------------------------------------------------------------------
@@ -222,7 +206,7 @@ forward_months as (
 SELECT
     distinct A.serviceno,
     A.accountno,
-    date_trunc('month', date(A.dt)) as month_survival, --- We'll use this column to track each of the relevant months.
+    date_trunc('month', date(A.dt)) as month_survival, --- We'll be truncating analysis using this column.
     C.sell_date, 
     C.activation_date,
     C.client_name,
@@ -254,6 +238,17 @@ WHERE
     and date(dt) between (select input_month from parameters) and (select input_month from parameters) + interval '13' month --- We take 13  months ahead.
 ),
 
+---
+--- The validation for involuntary churners can be made using etiher the polaris campaigns table or the DRC file.
+--- For development, the requested data source was Polaris Campaigns. However, that table only has data since mid-2022.
+--- Thus, the DRC file is needed for obtaining results for early-2022.
+---
+
+
+---
+--- In the Polaris table we can check if the accounts reached the threshold of 90 days of overdue.
+---
+
 -- relevant_polaris as (
 -- SELECT
 --     cast(billableaccountno as varchar) as billableaccountno, 
@@ -266,6 +261,11 @@ WHERE
 --     and dias_de_atraso > 90
 -- ),
 
+---
+--- Similarly, in the DRC file we can check if the account was disconnected as an involuntary churner, that is, reached the 90 days of overdue.
+---
+
+
 relevant_drc as (
 SELECT 
     cast(act_service_cd as varchar) as act_service_cd, 
@@ -273,7 +273,7 @@ SELECT
 FROM "lla_cco_int_ext_dev"."drc_movil_new" 
 WHERE 
     date(date_parse(fecha_drc,'%m/%d/%Y%')) between (SELECT input_month FROM parameters) and (SELECT input_month FROM parameters) + interval '13' month
-    and DAY(DATE_ADD('day', 1, date_parse(fecha_drc,'%m/%d/%Y%'))) = 1
+    and DAY(DATE_ADD('day', 1, date(date_parse(fecha_drc,'%m/%d/%Y%')))) = 1
 ),
 
 ---
@@ -290,107 +290,138 @@ distinct serviceno,
 accountno,
 
 max(
-    case when 
-    (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) --- Here we are making sure that we are limited by the desired date.
+    case when
+    --- #1: The month we are going to trunc is before the current month (This check is needed for not asuming an account as churner if the reason it disappears is that we do not have info for further months yet)
+    (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters)
+    --- #2: We trunc the month according to the month of analysis
         and month_survival = (SELECT input_month FROM parameters) + interval '0' month 
+    --- #3: Check if the account exists in DNA's last day of truncaded month
         and date(dt) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) --- DRC check for discarting involuntary churner
-        -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day) --- Polaris Campaigns check for discarting involuntary,
+    --- #4: Polaris - Check if the account is not in the group of accounts that reached an overdue of 90 days at the end of the truncated month.
+        -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day)
+    --- #4: DRC - Check if the account is not in the group of accounts that reached an overdue of 90 days at the end of the truncated month.
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day)
+    --- If all conditions are met, then we can assume that the account did survive until the truncated month
     then 1 else null end) as surv_m0,
 max(case when 
+    --- Now, we trunc for the next month and repeat an equivalent analysis...
     (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '1' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '2' month - interval '1' day)
+        -- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day)
     then 1 else null end) as surv_m1,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '2' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '2' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day 
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '3' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day)
     then 1 else null end) as surv_m2,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '3' month < (SELECT current_month FROM parameters)
         and month_survival = (SELECT input_month FROM parameters) + interval '3' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '4' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day)
     then 1 else null end) as surv_m3,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '4' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '4' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '5' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day)
     then 1 else null end) as surv_m4,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '5' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '5' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day)
     then 1 else null end) as surv_m5,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '6' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day)
     then 1 else null end) as surv_m6,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '7' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '7' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '8' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day)
     then 1 else null end) as surv_m7,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '8' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '8' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '9' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day)
     then 1 else null end) as surv_m8,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '9' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '9' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day
-        -- and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_polaris WHERE date_parse(fecha_drc,'%m/%d/%Y%') = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day) then 1 else null end) as surv_M9,
-        and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '10' month - interval '1' day)
+        --- Polaris
+        -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '10' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day)
     then 1 else null end) as surv_m9,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '10' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '10' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '11' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day)
     then 1 else null end) as surv_m10,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '11' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '11' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day 
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '12' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day)
     then 1 else null end) as surv_m11,
 
 max(case when 
     (SELECT input_month FROM parameters) + interval '12' month < (SELECT current_month FROM parameters) 
         and month_survival = (SELECT input_month FROM parameters) + interval '12' month 
         and date(dt) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day 
-        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day)
+        --- Polaris
         -- and cast(accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '13' month - interval '1' day)
+        --- DRC
+        and cast(serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day)
     then 1 else null end) as surv_m12
 
 from forward_months 
@@ -498,7 +529,9 @@ SELECT
             (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
             and month_survival = (SELECT input_month FROM parameters) + interval '0' month 
             and churn_m0 = 1 /*surv_m0 is null*/
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '1' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day)
         then 'Involuntario'
         when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
@@ -512,7 +545,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '1' month 
             and churn_m0 is null 
             and churn_m1 = 1 /*surv_m0 = 1 and surv_m1 is null*/  --- Here we are checking if this is the first churn month of the account.
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '2' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '2' month - interval '1' day)
         then 'Involuntario'
         when 
@@ -528,7 +563,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '2' month 
             and churn_m1 is null 
             and churn_m2 = 1 /*surv_m1 = 1 and surv_m2 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '3' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '3' month - interval '1' day)
         then 'Involuntario'
         when 
@@ -544,7 +581,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '3' month 
             and churn_m2 is null 
             and churn_m3 = 1 /*surv_m2 = 1 and surv_m3 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '4' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '4' month - interval '1' day)
         then 'Involuntario'
         when 
@@ -560,7 +599,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '4' month 
             and churn_m3 is null 
             and churn_m4 = 1 /*surv_m3 = 1 and surv_m4 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '5' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '5' month - interval '1' day)
         then 'Involuntario'
         when 
@@ -576,7 +617,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '5' month 
             and churn_m4 is null 
             and churn_m5 = 1 /*surv_m4 = 1 and surv_m5 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '6' month - interval '1' day)
         then 'Involuntario'  
         when 
@@ -592,7 +635,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '6' month 
             and churn_m5 is null 
             and churn_m6 = 1 /*surv_m5 = 1 and surv_m6 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '7' month - interval '1' day)
         then 'Involuntario'  
         when 
@@ -608,7 +653,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '7' month 
             and churn_m6 is null 
             and churn_m7 = 1 /*surv_m6 = 1 and surv_m7 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '8' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '8' month - interval '1' day)
         then 'Involuntario'  
         when 
@@ -624,7 +671,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '8' month 
             and churn_m7 is null 
             and churn_m8 = 1 /*surv_m7 = 1 and surv_m8 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '9' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '9' month - interval '1' day)
         then 'Involuntario' 
         when 
@@ -640,7 +689,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '9' month 
             and churn_m8 is null 
             and churn_m9 = 1 /*surv_m8 = 1 and surv_m9 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '10' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '10' month - interval '1' day)
         then 'Involuntario' 
         when 
@@ -656,7 +707,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '10' month 
             and churn_m9 is null 
             and churn_m10 = 1 /*surv_m9 = 1 and surv_m10 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '11' month - interval '1' day)
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '11' month - interval '1' day)
         then 'Involuntario' 
         when 
@@ -672,7 +725,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '11' month
             and churn_m10 is null 
             and churn_m11 = 1/*surv_m10 = 1 and surv_m11 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '12' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '12' month - interval '1' day)
         then 'Involuntario' 
         when 
@@ -688,7 +743,9 @@ SELECT
             and month_survival = (SELECT input_month FROM parameters) + interval '12' month 
             and churn_m11 is null 
             and churn_m12 = 1 /*surv_m11 = 1 and surv_m12 is null*/ 
+            --- Polaris
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '13' month - interval '1' day) 
+            --- DRC
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '13' month - interval '1' day)
         then 'Involuntario' 
         when 
@@ -1074,22 +1131,34 @@ SELECT
     A.bill_1st_date,
     
     case when 
-        cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day and dias_de_atraso > 90)
+    --- Polaris
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+    --- DRC
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
     then 1 else null end as churner_1st_bill,
     
     A.bill_2nd_date, 
     
     case when 
-        cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day and dias_de_atraso > 90)
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day and dias_de_atraso > 90)
+    --- Polaris
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+    --- DRC
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
     then 1 else null end as churner_2nd_bill,
     
     A.bill_3rd_date,
     
     case when 
-        cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day and dias_de_atraso > 90)
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day and dias_de_atraso > 90)
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day and dias_de_atraso > 90)
+    --- Polaris
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
+    --- DRC
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
     then 1 else null end as churner_3rd_bill
     
 FROM bill_dates A
@@ -1116,8 +1185,13 @@ SELECT
     case when 
         (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
         and surv_m6 is null 
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
-        and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+        --- Polaris
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+        --- DRC
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
+        
     then 1 else null end as voluntary_churners_6_month
 FROM survival A
 LEFT JOIN churners_per_bill B
@@ -1221,3 +1295,4 @@ FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
 -- LIMIT 10
+
