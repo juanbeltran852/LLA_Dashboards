@@ -1,7 +1,9 @@
 --------------------------------------------------------------------------------
 -------------------------- CWP - SALES QUALITY MOBILE --------------------------
 --------------------------------------------------------------------------------
---- Commented in 06/07/2023 (d/m/y).
+--- Commented in 13/07/2023 (d/m/y).
+
+-- CREATE TABLE IF NOT EXISTS "dg-sandbox"."cwp_sqm_nov22" as 
 
 WITH
 
@@ -1346,7 +1348,16 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    * 
+    -- * 
+    count(distinct serviceno) as gross, 
+    sum(churners_90_1st_bill) as churners_bill1, 
+    sum(churners_90_2nd_bill) as churners_bill2, 
+    sum(churners_90_3rd_bill) as churners_bill3, 
+    sum(rejoiners_1st_bill) as rejoiners_bill1, 
+    sum(rejoiners_2nd_bill) as rejoiners_bill2, 
+    sum(rejoiners_3rd_bill) as rejoiners_bill3, 
+    sum(voluntary_churners_6_month) as volchurners_m6,
+    sum(surv_m6) as surv_m6
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
