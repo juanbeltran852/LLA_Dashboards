@@ -525,24 +525,29 @@ churn_type as (
 SELECT
     distinct A.serviceno,
     case 
-        when 
+        when
+        --- #1: Check that the truncated month takes available data only.
             (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
+        --- #2: Trunc the month of analysis.
             and month_survival = (SELECT input_month FROM parameters) + interval '0' month 
+        --- #3: The account must have churned in the truncated month to have a churntype
             and churn_m0 = 1 /*surv_m0 is null*/
-            --- Polaris
+        --- #4: Polaris - Check if the account is in the group of accounts that reached 90 days of overdue at the end of the truncated month (Involuntary churn is prioritised before voluntary churn)
             -- and cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '1' month - interval '1' day) 
-            --- DRC
+        --- #5: DRC - Check if the account got into the DRC file at the of the truncated month (Involuntary churn is prioritised before voluntary churn)
             and cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters) + interval '1' month - interval '1' day)
         then 'Involuntario'
+        --- #6: If the account churned but not as an involuntary churner, then it must not exist in the last day of the DNA for the truncated month
         when (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
             and month_survival = (SELECT input_month FROM parameters) + interval '0' month 
-            and churn_m1 = 1 
+            and churn_m0 = 1 
         then 'Voluntario'
     else null end as churntype_m0,
     case 
         when 
             (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
             and month_survival = (SELECT input_month FROM parameters) + interval '1' month 
+        --- #7: Now, we check if the account did not churn in the previous truncated month and did churn in this truncated month. The idea is to tag the churntype just in the month that the account churned.
             and churn_m0 is null 
             and churn_m1 = 1 /*surv_m0 = 1 and surv_m1 is null*/  --- Here we are checking if this is the first churn month of the account.
             --- Polaris
@@ -774,6 +779,10 @@ ORDER BY A.serviceno
 --- useful for other purposes.
 ---
 
+---
+--- For invol churn the check is made only with the DRC file.
+---
+
 -- invol_churn as (
 -- SELECT
 --     distinct A.serviceno, 
@@ -995,98 +1004,95 @@ SELECT
     date_trunc('month', date(A.dt)) as month_forward, 
     max(A.total_mrc_d) as max_total_mrc
 FROM forward_months A
--- RIGHT JOIN gross_pagos_npn C
-    -- ON cast(A.serviceno as varchar) = cast(C.serviceno as varchar)
-    -- ON cast(A.accountno as varchar) = cast(C.accountno as varchar)
--- WHERE
-    -- A.account_status in ('ACTIVE','RESTRICTED', 'GROSS_ADDS')
-    -- and A.category in ('Consumer', 'Consumer Mas Control','Low Risk Consumer', 'CW Employees')
-    -- and date(dt) between (select input_month from parameters) and (select input_month from parameters) + interval '13' month
 GROUP BY 1, 2, 3
 ),
 
 mrc_evol as (
 SELECT
     distinct A.serviceno, 
-    
-    max(case when 
+
+    max(case when
+            --- #1: Check if the account did survive until the truncated month
             surv_m0 = 1 
+            --- #2: Trunc the month
             and month_forward = (SELECT input_month FROM parameters) + interval '0' month 
-            and (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters) 
+            --- #3: Only take available information according to the current month
+            and (SELECT input_month FROM parameters) + interval '0' month < (SELECT current_month FROM parameters)
+        --- If the conditions are met, then display the maximun mrc that the account had in the month
         then max_total_mrc else null end) as mrc_m0, 
-    
+
     max(case when 
             surv_m1 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '1' month 
             and (SELECT input_month FROM parameters) + interval '1' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m1, 
-    
+
     max(case when 
             surv_m2 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '2' month 
             and (SELECT input_month FROM parameters) + interval '2' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m2, 
-    
+
     max(case when 
             surv_m3 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '3' month 
             and (SELECT input_month FROM parameters) + interval '3' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m3, 
-    
+
     max(case when 
             surv_m4 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '4' month 
             and (SELECT input_month FROM parameters) + interval '4' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m4, 
-    
+
     max(case when 
             surv_m5 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '5' month 
             and (SELECT input_month FROM parameters) + interval '5' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m5, 
-    
+
     max(case when 
             surv_m6 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '6' month 
             and (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m6, 
-    
+
     max(case when 
             surv_m7 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '7' month 
             and (SELECT input_month FROM parameters) + interval '7' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m7, 
-    
+
     max(case when 
             surv_m8 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '8' month 
             and (SELECT input_month FROM parameters) + interval '8' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m8, 
-    
+
     max(case when 
             surv_m9 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '9' month 
             and (SELECT input_month FROM parameters) + interval '9' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m9, 
-    
+
     max(case when 
             surv_m10 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '10' month 
             and (SELECT input_month FROM parameters) + interval '10' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m10, 
-    
+
     max(case when 
             surv_m11 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '11' month 
             and (SELECT input_month FROM parameters) + interval '11' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m11, 
-    
+
     max(case when 
             surv_m12 = 1 
             and month_forward = (SELECT input_month FROM parameters) + interval '12' month 
             and (SELECT input_month FROM parameters) + interval '12' month < (SELECT current_month FROM parameters) 
         then max_total_mrc else null end) as mrc_m12
-    
+
 FROM forward_months_mrc A
 LEFT JOIN survival B
     ON CAST(A.serviceno as varchar) = CAST(B.serviceno as varchar)
@@ -1097,23 +1103,38 @@ GROUP BY 1
 ---------------------------------- WATERFALL ANALYSIS ---------------------------
 --------------------------------------------------------------------------------
 
+---
+--- For the waterfall analysis we need the dates of the different bills issued for the account
+--- in order to verify if the account churned for not paying the 1st, 2nd or 3rd bill.
+---
+
+---
+--- As the required columns from the DNA do not work, a workaround is required.
+--- We look for the next 4th of the month right after the sell date and we'll take that day
+--- as the date of the first bill.
+---
+
 bill_dates as (
 SELECT
     distinct A.serviceno, 
     A.accountno,
     A.sell_date, 
     case 
+        --- #1: If the sell date is before the 4th of the month of analysis the bill date will be the 4th of the month.
         when sell_date <= (SELECT input_month FROM parameters) + interval '3' day 
             then (SELECT input_month FROM parameters) + interval '3' day
+        --- #2: If the sell date is after the 4th of the month of analysis the bill date will be the 4th of the next month.
         when sell_date > (SELECT input_month FROM parameters) + interval '3' day 
             then (SELECT input_month FROM parameters) + interval '1' month + interval '3' day
     end as bill_1st_date, 
+    --- For the 2nd bill the logic is the same, just addding one month.
     case 
         when sell_date <= (SELECT input_month FROM parameters) + interval '3' day 
             then (SELECT input_month FROM parameters) + interval '1' month + interval '3' day
         when sell_date > (SELECT input_month FROM parameters) + interval '3' day 
             then (SELECT input_month FROM parameters) + interval '2' month + interval '3' day
     end as bill_2nd_date, 
+    --- For the 3rd bill the logic is the same, just addding two month.
     case 
         when sell_date <= (SELECT input_month FROM parameters) + interval '3' day 
             then (SELECT input_month FROM parameters) + interval '2' month + interval '3' day
@@ -1129,36 +1150,76 @@ SELECT
     A.sell_date, 
     
     A.bill_1st_date,
-    
+    --- Check if the account did churn as an involuntary churn in last day of the month in which the first bill could have gone in unpaid.
     case when 
-    --- Polaris
-        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
-    --- DRC
-        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+    --- #1: Polaris - Check involuntary churners in Polaris
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris 
+        --                                 WHERE date(dt) =
+        --                                 --- We will be checking the Polaris table in the last day of the month in which the bill could have reached 90 days of overdue.
+        --                                     date_add('month',
+        --                                         --- If the date of the 1st bill is in the same sell month, the bill would be in overdue 3 months after the initial month (m0).
+        --                                         --- If the date of the 1st bill is in the month after the sell month, the bill would be in overdue 4 months after the initial month (m0).
+        --                                         date_diff('month', A.bill_1st_date, A.sell_date) + 3, 
+        --                                         date_trunc('month', date(A.bill_1st_date))
+        --                                         ) - interval '1' day)
+    --- #1: DRC - Check involuntary churners in DRC
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc
+                                        WHERE date(fecha_drc) = 
+                                        --- We will be checking the Polaris table in the last day of the month in which the bill could have reached 90 days of overdue.
+                                        date_add('month', 
+                                                --- If the date of the 1st bill is in the same sell month, the bill would be in overdue 3 months after the initial month (m0).
+                                                --- If the date of the 1st bill is in the month after the sell month, the bill would be in overdue 4 months after the initial month (m0).
+                                                date_diff('month', A.bill_1st_date, A.sell_date) + 3, 
+                                                date_trunc('month', date(A.bill_1st_date))
+                                                ) - interval '1' day)
     then 1 else null end as churner_1st_bill,
     
     A.bill_2nd_date, 
-    
+    --- Check if the account did churn as an involuntary churn in last day of the month in which the second bill could have gone in unpaid.
     case when 
-    --- Polaris
-        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
-        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
-    --- DRC
-        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
-        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+    --- #1: Polaris - Check involuntary churners in Polaris
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris 
+        --                                 WHERE date(dt) = 
+        --                                 --- We will be checking the Polaris table in the last day of the month in which 2nd bill could have reached 90 days of overdue.
+        --                                 date_add('month',
+        --                                         --- If the date of the 1st bill is in the same sell month, the 2nd bill would be in overdue 4 months after the initial month (m0).
+        --                                         --- If the date of the 1st bill is in the month after the sell month, the 2nd bill would be in overdue 5 months after the initial month (m0).
+        --                                     date_diff('month', A.bill_2nd_date, A.sell_date) + 4 , 
+        --                                     date_trunc('month', date(A.bill_2nd_date))
+        --                                     ) - interval '1' day)
+        -- --- The account was not a 1st bill churner.
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 3 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+        
+    --- #1: DRC - Check involuntary churners in DRC
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc 
+                                        WHERE date(fecha_drc) = 
+                                        --- We will be checking the Polaris table in the last day of the month in which 2nd bill could have reached 90 days of overdue.
+                                        date_add('month',
+                                                    --- If the date of the 1st bill is in the same sell month, the 2nd bill would be in overdue 4 months after the initial month (m0).
+                                                    --- If the date of the 1st bill is in the month after the sell month, the 2nd bill would be in overdue 5 months after the initial month (m0).
+                                            date_diff('month', A.bill_2nd_date, A.sell_date) + 4 , 
+                                            date_trunc('month', date(A.bill_2nd_date))
+                                            ) - interval '1' day)
+        --- The acccount was not a 1st bill churner.
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 3 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
     then 1 else null end as churner_2nd_bill,
     
     A.bill_3rd_date,
-    
-    case when 
-    --- Polaris
-        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
-        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
-        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
-    --- DRC
-        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
-        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
-        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
+    --- Check if the account did churn as an involuntary churn in last day of the month in which the third bill could have gone in unpaid.
+    case when
+    --- #1: Polaris - Check involuntary churners in Polaris
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        --- The account was not a 2nd bill churner
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 3 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+        --- The account was not a 1st bill churner
+        -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
+        
+    --- #1: DRC - Check involuntary churners in DRC
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        --- The account was not a 2nd bill churner
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 3 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
+        --- The account was not a 1st bill churner
+        and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
     then 1 else null end as churner_3rd_bill
     
 FROM bill_dates A
@@ -1183,15 +1244,18 @@ SELECT
         and surv_m6 is not null 
     then 1 else null end as rejoiners_3rd_bill, 
     case when 
+        --- #1. Take only available data.
         (SELECT input_month FROM parameters) + interval '6' month < (SELECT current_month FROM parameters) 
+        --- #2. The account didn't make it to the 6th month
         and surv_m6 is null 
+        --- #3. The account is was not an involuntary churner for the 6th month
         --- Polaris
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
         --- DRC
         and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters)  + interval '6' month - interval '1' day)
         and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = (SELECT input_month FROM parameters)  + interval '7' month - interval '1' day)
-        
+        --- If the conditions are met, the account was a voluntary churner
     then 1 else null end as voluntary_churners_6_month
 FROM survival A
 LEFT JOIN churners_per_bill B
@@ -1260,7 +1324,8 @@ SELECT
     rejoiners_3rd_bill, 
     voluntary_churners_6_month,
     
-    row_number() over (partition by A.serviceno order by sell_date, surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12, churner_1st_bill, churner_2nd_bill, churner_3rd_bill, rejoiners_1st_bill, rejoiners_2nd_bill, rejoiners_3rd_bill, voluntary_churners_6_month asc) as r_nm --- For eliminating residual duplicates
+    --- The row number allows us to eliminate duplicates. We use several columns to order the numeration because thus we can make sure that the output is stable (does not have slight changes every single time the code is executed)
+    row_number() over (partition by A.serviceno order by sell_date, surv_m0, surv_m1, surv_m2, surv_m3, surv_m4, surv_m5, surv_m6, surv_m7, surv_m8, surv_m9, surv_m10, surv_m11, surv_m12, churner_1st_bill, churner_2nd_bill, churner_3rd_bill, rejoiners_1st_bill, rejoiners_2nd_bill, rejoiners_3rd_bill, voluntary_churners_6_month asc) as r_nm
 
 FROM forward_months A
 LEFT JOIN survival B
@@ -1281,16 +1346,7 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    -- * 
-    count(distinct serviceno) as gross, 
-    sum(churners_90_1st_bill) as churners_bill1, 
-    sum(churners_90_2nd_bill) as churners_bill2, 
-    sum(churners_90_3rd_bill) as churners_bill3, 
-    sum(rejoiners_1st_bill) as rejoiners_bill1, 
-    sum(rejoiners_2nd_bill) as rejoiners_bill2, 
-    sum(rejoiners_3rd_bill) as rejoiners_bill3, 
-    sum(voluntary_churners_6_month) as volchurners_m6,
-    sum(surv_m6) as surv_m6
+    * 
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
