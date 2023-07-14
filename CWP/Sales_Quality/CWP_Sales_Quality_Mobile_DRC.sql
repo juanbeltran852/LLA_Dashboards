@@ -1161,7 +1161,7 @@ SELECT
         --                                     date_add('month',
         --                                         --- If the date of the 1st bill is in the same sell month, the bill would be in overdue 3 months after the initial month (m0).
         --                                         --- If the date of the 1st bill is in the month after the sell month, the bill would be in overdue 4 months after the initial month (m0).
-        --                                         date_diff('month', A.bill_1st_date, A.sell_date) + 4, 
+        --                                         date_diff('month', A.bill_1st_date, A.sell_date) + 4,  --- We add 4 months because we are going backwards one day, which let us in the last day of the 3rd or 4th month. 
         --                                         date_trunc('month', date(A.bill_1st_date))
         --                                         ) - interval '1' day)
     --- #1: DRC - Check involuntary churners in DRC
@@ -1171,7 +1171,7 @@ SELECT
                                         date_add('month', 
                                                 --- If the date of the 1st bill is in the same sell month, the bill would be in overdue 3 months after the initial month (m0).
                                                 --- If the date of the 1st bill is in the month after the sell month, the bill would be in overdue 4 months after the initial month (m0).
-                                                date_diff('month', A.bill_1st_date, A.sell_date) + 4, 
+                                                date_diff('month', A.bill_1st_date, A.sell_date) + 4, --- We add 4 months because we are going backwards one day, which let us in the last day of the 3rd or 4th month. 
                                                 date_trunc('month', date(A.bill_1st_date))
                                                 ) - interval '1' day)
     then 1 else null end as churner_1st_bill,
@@ -1210,14 +1210,14 @@ SELECT
     --- Check if the account did churn as an involuntary churn in last day of the month in which the third bill could have gone in unpaid.
     case when
     --- #1: Polaris - Check involuntary churners in Polaris
-        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        -- cast(A.accountno as varchar) in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 7 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
         --- The account was not a 2nd bill churner
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
         --- The account was not a 1st bill churner
         -- and cast(A.accountno as varchar) not in (SELECT cast(billableaccountno as varchar) FROM relevant_polaris WHERE date(dt) = date_add('month',date_diff('month', A.bill_2nd_date, A.sell_date) + 5 , date_trunc('month', date(A.bill_2nd_date))) - interval '1' day)
         
     --- #1: DRC - Check involuntary churners in DRC
-        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 6 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
+        cast(A.serviceno as varchar) in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_3rd_date, A.sell_date) + 7 , date_trunc('month', date(A.bill_3rd_date))) - interval '1' day)
         --- The account was not a 2nd bill churner
         and cast(A.serviceno as varchar) not in (SELECT cast(act_service_cd as varchar) FROM relevant_drc WHERE date(fecha_drc) = date_add('month',date_diff('month', A.bill_1st_date, A.sell_date) + 4 , date_trunc('month', date(A.bill_1st_date))) - interval '1' day)
         --- The account was not a 1st bill churner
@@ -1352,16 +1352,7 @@ LEFT JOIN rejoiners_per_bill H
 
 
 SELECT
-    -- * 
-    count(distinct serviceno) as gross, 
-    sum(churners_90_1st_bill) as churners_bill1, 
-    sum(churners_90_2nd_bill) as churners_bill2, 
-    sum(churners_90_3rd_bill) as churners_bill3, 
-    sum(rejoiners_1st_bill) as rejoiners_bill1, 
-    sum(rejoiners_2nd_bill) as rejoiners_bill2, 
-    sum(rejoiners_3rd_bill) as rejoiners_bill3, 
-    sum(voluntary_churners_6_month) as volchurners_m6,
-    sum(surv_m6) as surv_m6
+    * 
 FROM final_result
 WHERE r_nm = 1 --- Eliminating residual duplicates
 -- ORDER BY random(*)
