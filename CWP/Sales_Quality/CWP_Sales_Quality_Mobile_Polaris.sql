@@ -11,7 +11,7 @@ WITH
 
 parameters as (
 SELECT 
-    date('2022-09-01') as input_month,  --- The month we want to obtain the results for
+    date('2023-06-01') as input_month,  --- The month we want to obtain the results for
     date_trunc('month', date('2023-07-01')) as current_month --- The last month of available data
 ),
 
@@ -1154,6 +1154,11 @@ SELECT
     A.sell_date, 
     
     A.bill_1st_date,
+    --- We also use the date of the first bill for checking the windows of the NPN indicator.
+    case when date_diff('day', date(A.bill_1st_date), (SELECT current_month FROM parameters)) > 30 then serviceno else null end as window_completed_30, 
+    case when date_diff('day', date(A.bill_1st_date), (SELECT current_month FROM parameters)) > 60 then serviceno else null end as window_completed_60, 
+    case when date_diff('day', date(A.bill_1st_date), (SELECT current_month FROM parameters)) > 90 then serviceno else null end as window_completed_90, 
+    
     --- Check if the account did churn as an involuntary churn in last day of the month in which the first bill could have gone in unpaid.
     case when 
     --- #1: Polaris - Check involuntary churners in Polaris
@@ -1236,6 +1241,9 @@ FROM bill_dates A
 rejoiners_per_bill as (
 SELECT
     distinct A.serviceno, 
+    window_completed_30, 
+    window_completed_60, 
+    window_completed_90,
     churner_1st_bill, 
     churner_2nd_bill, 
     churner_3rd_bill,
@@ -1313,6 +1321,9 @@ SELECT
     A.npn_30_flag,
     A.npn_60_flag,
     A.npn_90_flag, 
+    window_completed_30, 
+    window_completed_60, 
+    window_completed_90,
     A.npn_flag, 
     A.early_payment_flag,
     A.Payed_Entry_Fee_ammnt, 
