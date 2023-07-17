@@ -1312,7 +1312,7 @@ SELECT
     A.plan_code,
     A.plan_name,
     case 
-        when A.total_mrc_d < 25 then '<23'
+        when A.total_mrc_d < 25 then '<25'
         when A.total_mrc_d >= 25 and A.total_mrc_d < 30 then '[25,30)'
         when A.total_mrc_d >= 30 then '>=30'
     end as mrc_plan,
