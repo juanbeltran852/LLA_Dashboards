@@ -4,7 +4,7 @@
 -- Usage: Once the 12 months of analysis have been executed with the mobile sales quality code, you can run this code to generate
 -- the required table for the waterfall sections of the dashboard.
 -- ===========================================================================================================================
-SELECT sell_month, movement_flag, sell_channel,
+SELECT sell_month, movement_flag, sell_channel, 'Wireless' as techflag,
 
 -- Customers (serviceno)
 count(distinct serviceno) as Sales,
@@ -26,6 +26,6 @@ null as rejoiners_2nd_bill_rgu,
 null as rejoiners_3rd_bill_rgu,
 null as rejoiners_3rd_bill_rgu
 
-FROM "dg-sandbox"."cwp_sqm_jan22_jun23"
+FROM "dg-sandbox"."cwp_sqm_jan22_jun23" 
 GROUP BY 1,2,3
-
+ORDER BY sell_month asc
