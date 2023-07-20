@@ -1,7 +1,7 @@
 -----------------------------------------------------------------------------------------
 -------------------------- LCPR POSTPAID TABLE - V1 -------------------------------------
 -----------------------------------------------------------------------------------------
---- Comment (2023-07-20): Use this code ofr obtaning Mobile results for Feb22 and before ---
+--- Comment (2023-07-20): Use this code ofr obtaning Mobile results for Feb23 and before ---
 
 --CREATE TABLE IF NOT EXISTS "db_stage_dev"."lcpr_postpaid_table_jan_mar15" AS
 
