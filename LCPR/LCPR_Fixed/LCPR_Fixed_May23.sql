@@ -1,6 +1,7 @@
 -----------------------------------------------------------------------------------------
 ---------------------------- LCPR FIXED TABLE - V2 --------------------------------------
 -----------------------------------------------------------------------------------------
+--- Comment (2023-07-20): Use code for obtaining fixed results for May 2023 ---
 
 --- --- Adjustments (18/06/2023):
 --- 1. Order Activity logics are used to complement some of the logics already used (mainly for Vol Churn and Transfers).
