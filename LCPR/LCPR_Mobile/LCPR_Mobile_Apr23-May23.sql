@@ -18,7 +18,7 @@ WITH
 
 parameters AS (
 --> Seleccionar el mes en que se desea realizar la corrida
-SELECT  DATE_TRUNC('month',DATE('2023-03-01')) AS input_month
+SELECT  DATE_TRUNC('month',DATE('2023-04-01')) AS input_month
         ,85 as overdue_days
 )
 
