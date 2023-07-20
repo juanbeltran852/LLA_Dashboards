@@ -14,7 +14,7 @@ SELECT
     count(distinct cust_id) as num_parent
 FROM "lcpr.stage.dev"."tbl_pstpd_cust_mstr_ss_data"
 WHERE
-    date(dt) = (SELECT input_month FROM parameters)
+    date(run_timestamp) = (SELECT input_month FROM parameters)
     -- and cust_sts = 'O'
     -- and acct_type_cd = 'I'
     -- and rgn_nm <> 'VI'
@@ -27,7 +27,7 @@ WHERE
 --     count(distinct customer_id) as num_parent
 -- FROM "transform-lcpr-stage-dev"."att_dna_pstpd"
 -- WHERE
---     date(dt) = (SELECT input_month FROM parameters)
+--     date(run_timestamp) = (SELECT input_month FROM parameters)
 --     -- and customer_status = 'O'
 --     -- and acct_type_cd = 'I'
 --     -- and region_name <> 'VI'
@@ -48,7 +48,7 @@ WHERE
 --     count(distinct cust_id) as num_parent
 -- FROM "lcpr.stage.dev"."tbl_pstpd_cust_cxl_incr_data"
 -- WHERE
---     date(dt) = (SELECT input_month FROM parameters)
+--     date(run_timestamp) = (SELECT input_month FROM parameters)
 --     -- and acct_type_cd = 'I'
 --     -- and rgn_nm <> 'VI'
 --     /* Unvalid disco reasons */
@@ -64,10 +64,10 @@ WHERE
 --     count(distinct A.customer_id) as num_parent
 -- FROM "transform-lcpr-stage-dev"."att_dna_prepd_sbp" A
 -- /* A left join between new tables is needed beacuse 2 important columns used in the old table are not in the equivalent new table */
--- LEFT JOIN (SELECT subscription_id, customer_id, lst_susp_rsn_desc, acct_type_cd FROM "transform-lcpr-stage-dev"."att_dna_pstpd" WHERE date(dt) = (SELECT input_date FROM parameters)) B
+-- LEFT JOIN (SELECT subscription_id, customer_id, lst_susp_rsn_desc, acct_type_cd FROM "transform-lcpr-stage-dev"."att_dna_pstpd" WHERE date(run_timestamp) = (SELECT input_date FROM parameters)) B
 -- ON A.subscription_id = B.subscription_id
 -- WHERE
---     date(dt) = (SELECT input_month FROM parameters)
+--     date(run_timestamp) = (SELECT input_month FROM parameters)
 --     -- and acct_type_cd = 'I'
 --     -- and ba_region_name <> 'VI'
 --     /* Unvalid disco reasons */
@@ -86,7 +86,7 @@ WHERE
 --     count(distinct cust_id) as num_parent
 -- FROM "lcpr.stage.dev"."tbl_prepd_erc_cust_mstr_ss_data"
 -- WHERE
---     date(dt) = (SELECT input_month FROM parameters) --- Ideally, must be a BOM or EOM day.
+--     date(run_timestamp) = (SELECT input_month FROM parameters) --- Ideally, must be a BOM or EOM day.
 --     -- and cust_sts = 'O'
 --     -- and acct_type_cd = 'I'
 --     -- and ba_rgn_nm <> 'VI'
@@ -100,9 +100,8 @@ WHERE
 --     count(distinct customer_id) as num_parent
 -- FROM "transform-lcpr-stage-dev"."att_dna_prepd_erc"
 -- WHERE
---     date(dt) = (SELECT input_month FROM parameters)
---     -- and customer_status = 'O'
---     -- and acct_type_cd = 'I'
---     -- and region_name <> 'VI'
---     -- and subscription_status = 'A'
-
+--     date("run_timestamp") = (SELECT input_month FROM parameters)
+--     and customer_status = 'O'
+--     and acct_type_cd = 'I'
+--     and ba_region_name <> 'VI'
+--     and subscription_status = 'A'
